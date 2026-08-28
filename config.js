@@ -1,4 +1,7 @@
 // ==========================================
-// MÓDULO: CONFIGURACIÓN GENERAL (config.js)
+// CONFIGURACIÓN GLOBAL (config.js)
 // ==========================================
-window.APP_VERSION = "2.0.0";
+window.APP_CONFIG = {
+    version: "2.0",
+    nombre: "Melide Deportes"
+};
