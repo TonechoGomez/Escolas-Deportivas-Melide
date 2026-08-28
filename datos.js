@@ -10,7 +10,7 @@ window.db = JSON.parse(localStorage.getItem('melide_db')) || {
 };
 
 // 2. Tu URL de Google Sheets (No la toques, es la tuya actual)
-window.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyR675_Y42K8pB8GzB9I_vI_RkZ_N4Fh9D0kR/exec";
+window.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwm0XIygblMMbJiKoqSPPGFms-X61I8yipYRQgkqUnuMNK2XV7cTwsYOhxPotAVU0Ol/exec";
 
 /**
  * Guarda los datos y los envía AUTOMÁTICAMENTE a la nube
