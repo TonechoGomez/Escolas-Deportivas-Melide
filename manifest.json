@@ -7,7 +7,7 @@
   "theme_color": "#ffffff",
   "icons": [
     {
-      "src": "escudo-melide.webp",
+      "src": "escudo-melide.png",
       "sizes": "512x512",
       "type": "image/webp"
     }
