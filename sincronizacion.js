@@ -3,7 +3,7 @@
 // ==========================================
 
 // URL de tu Web App de Google Apps Script (Sustituye si cambia, mantén la actual si ya funciona)
-window.SCRIPT_URL = window.SCRIPT_URL || "https://script.google.com/macros/s/AKfycbzQy4u0rB8z9Z_.../exec"; 
+window.SCRIPT_URL = window.SCRIPT_URL || "window.SCRIPT_URL = window.SCRIPT_URL || "https://script.google.com/macros/s/TU_ENLACE_REAL_AQUI/exec";"; 
 
 // 1. Descargar datos de la nube al iniciar la aplicación
 async function descargarDatosAlInicio() {
