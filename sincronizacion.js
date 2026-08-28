@@ -31,10 +31,9 @@ async function enviarDatosAWebApp() {
     try {
         await fetch(window.SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(window.db)
         });
+        console.log("Datos enviados correctamente a la nube.");
     } catch (error) {
         console.error("Error al sincronizar con la nube:", error);
     }
