@@ -1,7 +1,7 @@
 {
   "name": "Mi Aplicación",
   "short_name": "App",
-  "start_url": "index.html",
+  "start_url": "/Escolas-Deportivas-Melide/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
