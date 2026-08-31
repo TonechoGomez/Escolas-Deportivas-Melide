@@ -7,7 +7,7 @@
   "theme_color": "#ffffff",
   "icons": [
     {
-      "src": "escudo-melide.png",
+      "src": "/Escolas-Deportivas-Melide/escudo-melide.png",
       "sizes": "512x512",
       "type": "image/png"
     }
