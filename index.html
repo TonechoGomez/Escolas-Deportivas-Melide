@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Melide Deportes - Gestión</title>
+    
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+
     <style>
         :root {
             --melide-primary: #005696;
@@ -70,6 +74,30 @@
         }
 
         .header-btn { background:none; border:none; color:white; font-size: 1.8rem; cursor:pointer; padding: 5px 10px; }
+
+        /* ADAPTACIÓN EXCLUSIVA PARA MÓVILES (No afecta a PC ni tablets) */
+        @media (max-width: 600px) {
+            .menu-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                padding: 10px;
+            }
+
+            .menu-item {
+                padding: 30px 15px;
+                border-radius: 20px;
+                gap: 15px;
+            }
+
+            .menu-item span {
+                font-size: 3.5rem;
+            }
+
+            .menu-item label {
+                font-size: 1.1rem;
+                letter-spacing: 1px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -138,7 +166,5 @@
         });
         window.onload = () => { if(pinInputs[0]) pinInputs[0].focus(); };
     </script>
-    <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="manifest" href="manifest.json">
 </body>
 </html>
