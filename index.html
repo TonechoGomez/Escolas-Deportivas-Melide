@@ -159,7 +159,7 @@
         function toggleFullScreen() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => {
-                    console.log("Error al intentar poner pantalla completa: ", err);
+                    console.log("Error al intentar pantalla completa: ", err);
                 });
             } else {
                 if (document.exitFullscreen) {
@@ -168,6 +168,15 @@
             }
         }
         
+        // Evita que saltos de sincronización borren los cambios mientras el usuario escribe o edita
+        window.addEventListener('beforeunload', (e) => {
+            const editScreen = document.getElementById('scr-edit');
+            if (editScreen && editScreen.style.display === 'block') {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
         const pinInputs = document.querySelectorAll('.pin-input');
         pinInputs.forEach((input, index) => {
             input.addEventListener('input', (e) => {
