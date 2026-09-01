@@ -24,6 +24,7 @@ function mostrarCuadrantes() {
                     <option value="hora">Hora</option>
                     <option value="monitor">Monitor/a</option>
                     <option value="aula">Instalación</option>
+                    <option value="actividad">Actividade</option>
                 </select>
                 
                 <select id="filtro-valor" onchange="renderizarAmbosCuadrantes()" style="padding:10px; border-radius:8px; border:none; font-size:0.9rem; background:white; color:#333;">
@@ -40,7 +41,6 @@ function abrirConfiguracionDatos() {
     const container = document.getElementById('data-container');
     if (!container) return;
 
-    // Limpiamos todo el contenedor antes de dibujar para evitar que las tablas lo pisen
     container.innerHTML = "";
     container.style.display = "flex";
     container.style.justifyContent = "center";
@@ -137,6 +137,8 @@ function actualizarOpcionesFiltro() {
         opciones = [...new Set((window.db.Actividades || []).map(a => a.monitor).filter(Boolean))].sort();
     } else if (tipo === 'aula') {
         opciones = [...new Set((window.db.Actividades || []).map(a => a.aula).filter(Boolean))].sort();
+    } else if (tipo === 'actividad') {
+        opciones = [...new Set((window.db.Actividades || []).map(a => a.nome).filter(Boolean))].sort();
     }
 
     opciones.forEach(opt => {
@@ -150,7 +152,7 @@ function renderizarAmbosCuadrantes() {
     const container = document.getElementById('data-container');
     if (!container) return;
     container.innerHTML = "";
-    container.style.display = "block"; // Reset de estilo por si venimos de configuración
+    container.style.display = "block";
 
     const divGen = document.createElement('div');
     divGen.innerHTML = `<h4 style="color:white; margin-bottom:8px; border-left:4px solid #16a34a; padding-left:8px; font-size:0.9rem;">CUADRANTE XERAL</h4>`;
@@ -207,6 +209,7 @@ function generarTablaBase(aplicarFiltro) {
                 if (tipoFiltro === 'monitor') return (act.monitor || "") === valorFiltro;
                 if (tipoFiltro === 'aula') return (act.aula || "") === valorFiltro;
                 if (tipoFiltro === 'hora') return (act.hora || "").includes(valorFiltro);
+                if (tipoFiltro === 'actividad') return (act.nome || "") === valorFiltro;
                 return false;
             });
 
