@@ -5,6 +5,18 @@
 // URL de tu Web App de Google Apps Script
 window.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwm0XIygblMMbJiKoqSPPGFms-X61I8yipYRQgkqUnuMNK2XV7cTwsYOhxPotAVU0Ol/exec";
 
+// Función auxiliar para actualizar los datos visualmente solo si estamos en cuadrantes
+function refrescarSiEstamosEnCuadrantes() {
+    const editScreen = document.getElementById('scr-edit');
+    // Si la pantalla de edición está abierta y contiene elementos de cuadrantes o estamos viéndolos, actualizamos.
+    // Si estás en Instalaciones o Actividades, NO se toca la pantalla para no molestarte.
+    if (editScreen && editScreen.style.display === 'block') {
+        if (typeof renderizarAmbosCuadrantes === 'function' && document.getElementById('filtro-tipo')) {
+            renderizarAmbosCuadrantes();
+        }
+    }
+}
+
 // 1. Descargar datos de la nube al iniciar la aplicación
 async function descargarDatosAlInicio() {
     if (!window.SCRIPT_URL) return;
@@ -15,9 +27,7 @@ async function descargarDatosAlInicio() {
             if (dataRemota && typeof dataRemota === 'object' && Object.keys(dataRemota).length > 0) {
                 window.db = dataRemota;
                 localStorage.setItem('melide_db', JSON.stringify(window.db));
-                if (typeof renderizarAmbosCuadrantes === 'function') {
-                    renderizarAmbosCuadrantes();
-                }
+                refrescarSiEstamosEnCuadrantes();
             }
         }
     } catch (error) {
@@ -52,9 +62,7 @@ async function verificarCambiosEnNube() {
             if (remotoActual !== localActual && dataRemota && typeof dataRemota === 'object' && Object.keys(dataRemota).length > 0) {
                 window.db = dataRemota;
                 localStorage.setItem('melide_db', JSON.stringify(window.db));
-                if (typeof renderizarAmbosCuadrantes === 'function') {
-                    renderizarAmbosCuadrantes();
-                }
+                refrescarSiHandsOnCuadrantes(); // Mantiene la pantalla actual a salvo
             }
         }
     } catch (e) {}
