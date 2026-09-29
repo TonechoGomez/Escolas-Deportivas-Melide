@@ -115,7 +115,7 @@ function procesarCSVTemporada() {
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiar asignaciones previas
+        // 1. Limpiar asignaciones previas y reactivar estados de baja
         window.db.Alumnos.forEach(al => {
             al.act = "";
             if (al.estado === "Baixa" || al.status === "Baixa" || al.status === "baja") {
@@ -128,7 +128,7 @@ function procesarCSVTemporada() {
         let actividadActual = "";
         let contadorAlumnos = 0;
 
-        // 2. Procesar línea por línea
+        // 2. Procesar línea por línea con separación precisa de apellidos y nombre
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
@@ -157,15 +157,43 @@ function procesarCSVTemporada() {
             }
 
             if (actividadActual && col0 !== "") {
-                let nombreAlumno = col0.toUpperCase();
+                let textoCompleto = col0.toUpperCase().trim();
                 let telefonoAlumno = col1;
 
-                let alumnoGeneral = window.db.Alumnos.find(a => (a.nome || "").trim().toUpperCase() === nombreAlumno);
+                let apelidos = "";
+                let nomePila = "";
+
+                if (textoCompleto.includes(",")) {
+                    let fragmentos = textoCompleto.split(",");
+                    apelidos = fragmentos[0].trim();
+                    nomePila = fragmentos[1].trim();
+                } else {
+                    let palabras = textoCompleto.split(/\s+/);
+                    if (palabras.length <= 2) {
+                        apelidos = palabras[0] || "";
+                        nomePila = palabras[1] || "";
+                    } else {
+                        apelidos = palabras.slice(0, 2).join(" ");
+                        nomePila = palabras.slice(2).join(" ");
+                    }
+                }
+
+                let alumnoGeneral = window.db.Alumnos.find(a => 
+                    (a.nome || "").trim().toUpperCase() === nomePila && 
+                    (a.apelidos || "").trim().toUpperCase() === apelidos
+                );
+
+                if (!alumnoGeneral) {
+                    let nombreCompletoAntiguo = textoCompleto;
+                    alumnoGeneral = window.db.Alumnos.find(a => 
+                        ((a.apelidos ? a.apelidos + " " : "") + (a.nome || "")).trim().toUpperCase() === nombreCompletoAntiguo
+                    );
+                }
 
                 if (!alumnoGeneral) {
                     window.db.Alumnos.push({
-                        nome: nombreAlumno,
-                        apelidos: "",
+                        nome: nomePila,
+                        apelidos: apelidos,
                         tlf: telefonoAlumno,
                         act: actividadActual,
                         estado: "Admitido",
@@ -173,8 +201,9 @@ function procesarCSVTemporada() {
                         asistencias: {}
                     });
                 } else {
+                    alumnoGeneral.nome = nomePila;
+                    alumnoGeneral.apelidos = apelidos;
                     alumnoGeneral.act = actividadActual;
-                    // Blindaje absoluto contra estados de baja previos
                     alumnoGeneral.estado = "Admitido";
                     alumnoGeneral.status = "Admitido";
                     if (alumnoGeneral.baja) delete alumnoGeneral.baja;
@@ -186,7 +215,6 @@ function procesarCSVTemporada() {
             }
         }
 
-        // 3. Guardar y actualizar vista
         saveData();
 
         alert(`¡Importación completada con éxito!\n\n- Alumnos procesados: ${contadorAlumnos}`);
