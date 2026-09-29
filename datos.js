@@ -111,7 +111,7 @@ function procesarCSVTemporada() {
         return;
     }
 
-    if (!confirm("ATENCIÓN: Isto borrará a lista de alumnos de todas as actividades actuais para poñer a nova tempada, pero conservará o histórico xeral de alumnos. Desexas continuar?")) {
+    if (!confirm("ATENCIÓN: Isto actualizará as actividades dos alumnos segundo o arquivo CSV, limpando as asignacións antigas pero conservando o histórico xeral de alumnos. Desexas continuar?")) {
         return;
     }
 
@@ -120,19 +120,17 @@ function procesarCSVTemporada() {
         const contenido = e.target.result;
         const lineas = contenido.split(/\r\n|\n/);
 
-        // 1. Vaciar las listas de alumnos de todas las actividades actuales
-        if (window.db && window.db.Actividades) {
-            window.db.Actividades.forEach(act => {
-                act.alumnos = [];
-            });
-        }
-
         if (!window.db.Alumnos) window.db.Alumnos = [];
+
+        // 1. Limpiamos temporalmente el campo 'act' (actividad) de todos los alumnos actuales
+        window.db.Alumnos.forEach(al => {
+            al.act = "";
+        });
 
         let actividadActual = "";
         let contadorAsignaciones = 0;
 
-        // 2. Leer línea por línea detectando bloques de actividades
+        // 2. Leer línea por línea detectando títulos de actividades y alumnos
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
@@ -154,45 +152,37 @@ function procesarCSVTemporada() {
 
             if (!actividadActual) continue;
 
-            // A. Actualizar o crear en el histórico general de Alumnos
-            let alumnoGeneral = window.db.Alumnos.find(a => (a.nome || "").toUpperCase() === nombreAlumno);
+            // 3. Buscar si el alumno ya existe en el histórico general
+            let alumnoGeneral = window.db.Alumnos.find(a => (a.nome || "").trim().toUpperCase() === nombreAlumno);
+            
             if (!alumnoGeneral) {
+                // Si no existe, lo creamos nuevo con su actividad y teléfono
                 window.db.Alumnos.push({
                     nome: nombreAlumno,
                     tlf: telefonoAlumno,
+                    act: actividadActual,
                     estado: "Admitido",
                     status: "Admitido",
                     asistencias: {}
                 });
             } else {
+                // Si ya existe, le asignamos la nueva actividad y actualizamos su teléfono si no lo tenía
+                alumnoGeneral.act = actividadActual;
                 if (telefonoAlumno && !alumnoGeneral.tlf) {
                     alumnoGeneral.tlf = telefonoAlumno;
                 }
             }
-
-            // B. Buscar la actividad exacta y apuntar al alumno
-            let actEncontrada = window.db.Actividades.find(a => {
-                let nomeActDB = (a.nome || "").trim().toUpperCase();
-                return nomeActDB === actividadActual;
-            });
-
-            if (actEncontrada) {
-                if (!actEncontrada.alumnos) actEncontrada.alumnos = [];
-                if (!actEncontrada.alumnos.includes(nombreAlumno)) {
-                    actEncontrada.alumnos.push(nombreAlumno);
-                    contadorAsignaciones++;
-                }
-            }
+            contadorAsignaciones++;
         }
 
-        // 3. Guardar cambios
+        // 4. Guardar cambios en la base de datos y nube
         if (typeof saveData === 'function') {
             saveData();
         } else {
             localStorage.setItem('melide_db', JSON.stringify(window.db));
         }
 
-        alert(`¡Proceso rematado con éxito!\n\n- Actividades actualizadas coa nova tempada.\n- Histórico de alumnos gardado.\n- Total de asignacións: ${contadorAsignaciones}`);
+        alert(`¡Proceso rematado con éxito!\n\n- Actividades de alumnos actualizadas.\n- Histórico conservado.\n- Total de asignacións procesadas: ${contadorAsignaciones}`);
         location.reload();
     };
 
