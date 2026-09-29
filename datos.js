@@ -16,10 +16,7 @@ window.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwm0XIygblMMbJiKoqS
  * Guarda los datos y los envía AUTOMÁTICAMENTE a la nube
  */
 function saveData() {
-    // Guarda copia de seguridad en el navegador
     localStorage.setItem('melide_db', JSON.stringify(window.db));
-    
-    // Si la función de envío existe en sincronizacion.js, la lanza sola
     if (typeof enviarDatosAWebApp === 'function') {
         enviarDatosAWebApp();
     }
@@ -123,7 +120,7 @@ function procesarCSVTemporada() {
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiamos el campo 'act' de todos los alumnos actuales para quitar el año pasado
+        // 1. Limpiamos el campo 'act' de todos los alumnos para eliminar los grupos antiguos
         window.db.Alumnos.forEach(al => {
             al.act = "";
         });
@@ -142,9 +139,21 @@ function procesarCSVTemporada() {
 
             if (!col0 || col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE") continue;
 
-            // Si no hay segunda parte o está vacía, es una cabecera de actividad
+            // Si la segunda columna está vacía o no tiene punto y coma, es el título de la actividad
             if (col1 === "" || partes.length === 1) {
-                actividadActual = col0.trim(); // Guardamos el nombre exacto de la actividad del CSV
+                actividadActual = col0.trim();
+                
+                // Si la actividad del CSV no existe en la base de datos general de actividades, la creamos automáticamente
+                let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
+                if (!existeAct) {
+                    window.db.Actividades.push({
+                        nome: actividadActual,
+                        dia: "",
+                        hora: "",
+                        aula: "",
+                        monitor: ""
+                    });
+                }
                 continue;
             }
 
@@ -153,19 +162,7 @@ function procesarCSVTemporada() {
 
             if (!actividadActual) continue;
 
-            // Comprobamos si esa actividad existe en la base de datos de Actividades. Si no existe, la creamos automáticamente para que aparezca.
-            let actExiste = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
-            if (!actExiste) {
-                window.db.Actividades.push({
-                    nome: actividadActual,
-                    dia: "",
-                    hora: "",
-                    aula: "",
-                    monitor: ""
-                });
-            }
-
-            // 3. Buscar si el alumno ya existe en el histórico general
+            // 3. Buscar o crear el alumno en el histórico general y asignarle la actividad actual
             let alumnoGeneral = window.db.Alumnos.find(a => (a.nome || "").trim().toUpperCase() === nombreAlumno);
             
             if (!alumnoGeneral) {
@@ -173,13 +170,13 @@ function procesarCSVTemporada() {
                     nome: nombreAlumno,
                     apelidos: "",
                     tlf: telefonoAlumno,
-                    act: actividadActual, // Vinculamos con el nombre exacto de la actividad
+                    act: actividadActual,
                     estado: "Admitido",
                     status: "Admitido",
                     asistencias: {}
                 });
             } else {
-                alumnoGeneral.act = actividadActual; // Actualizamos a la nueva actividad
+                alumnoGeneral.act = actividadActual;
                 if (telefonoAlumno && !alumnoGeneral.tlf) {
                     alumnoGeneral.tlf = telefonoAlumno;
                 }
@@ -188,13 +185,9 @@ function procesarCSVTemporada() {
         }
 
         // 4. Guardar cambios
-        if (typeof saveData === 'function') {
-            saveData();
-        } else {
-            localStorage.setItem('melide_db', JSON.stringify(window.db));
-        }
+        saveData();
 
-        alert(`¡Proceso rematado con éxito!\n\n- Actividades actualizadas.\n- Alumnos vinculados: ${contadorAsignaciones}`);
+        alert(`¡Proceso rematado con éxito!\n\n- Total de rexistros procesados: ${contadorAsignaciones} alumnos.`);
         location.reload();
     };
 
