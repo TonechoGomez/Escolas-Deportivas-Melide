@@ -51,7 +51,7 @@ function mostrarDatos() {
             <button onclick="borrarTodaLaBD()" style="width:100%; background:#ef4444; color:white; padding:10px; border:none; border-radius:12px; cursor:pointer; font-size:0.85rem; margin-top:10px;">⚠️ BORRAR TODA A BASE DE DATOS</button>
             <button onclick="mostrarDatos()" style="margin-top:20px; width:100%; padding:15px; background:#475569; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">⬅️ VOLVER</button>
         </div>
-    `;
+    ` + mostrarSeccionNuevaTemporada();
 }
 
 function exportarDatosJSON() {
@@ -85,4 +85,116 @@ function borrarTodaLaBD() {
             location.reload();
         }
     }
+}
+
+// ==========================================
+// MÓDULO NOVA TEMPORADA (IMPORTAR EXCEL/CSV)
+// ==========================================
+
+function mostrarSeccionNuevaTemporada() {
+    return `
+        <div style="background:white; color:black; padding:25px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.2); text-align:center;">
+            <h3 style="margin-top:0; color:#005696;">🚀 NOVA TEMPORADA</h3>
+            <p style="font-size:0.9rem; color:#64748b; margin-bottom:15px;">Selecciona o teu arquivo CSV de listados para actualizar as actividades da nova tempada mantendo o histórico xeral.</p>
+            
+            <input type="file" id="csv-temporada-input" accept=".csv" style="font-size:0.8rem; width:100%; margin-bottom:15px;">
+            
+            <button onclick="procesarCSVTemporada()" style="width:100%; padding:15px; background:#16a34a; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">📥 CARGAR NOVA TEMPORADA</button>
+        </div>
+    `;
+}
+
+function procesarCSVTemporada() {
+    const input = document.getElementById('csv-temporada-input');
+    if (!input || !input.files[0]) {
+        alert("Por favor, selecciona primeiro un arquivo CSV.");
+        return;
+    }
+
+    if (!confirm("ATENCIÓN: Isto borrará a lista de alumnos de todas as actividades actuais para poñer a nova tempada, pero conservará o histórico xeral de alumnos. Desexas continuar?")) {
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const contenido = e.target.result;
+        const lineas = contenido.split(/\r\n|\n/);
+
+        // 1. Vaciar las listas de alumnos de todas las actividades actuales
+        if (window.db && window.db.Actividades) {
+            window.db.Actividades.forEach(act => {
+                act.alumnos = [];
+            });
+        }
+
+        if (!window.db.Alumnos) window.db.Alumnos = [];
+
+        let actividadActual = "";
+        let contadorAsignaciones = 0;
+
+        // 2. Leer línea por línea detectando bloques de actividades
+        for (let i = 0; i < lineas.length; i++) {
+            let linea = lineas[i].trim();
+            if (!linea) continue;
+
+            let partes = linea.split(/;|,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            let col0 = partes[0] ? partes[0].trim().replace(/^"|"$/g, '') : "";
+            let col1 = partes[1] ? partes[1].trim().replace(/^"|"$/g, '') : "";
+
+            if (!col0 || col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE") continue;
+
+            // Si la segunda columna está vacía, es el título de la actividad
+            if (col1 === "" || partes.length === 1) {
+                actividadActual = col0.toUpperCase();
+                continue;
+            }
+
+            let nombreAlumno = col0.toUpperCase();
+            let telefonoAlumno = col1;
+
+            if (!actividadActual) continue;
+
+            // A. Actualizar o crear en el histórico general de Alumnos
+            let alumnoGeneral = window.db.Alumnos.find(a => (a.nome || "").toUpperCase() === nombreAlumno);
+            if (!alumnoGeneral) {
+                window.db.Alumnos.push({
+                    nome: nombreAlumno,
+                    tlf: telefonoAlumno,
+                    estado: "Admitido",
+                    status: "Admitido",
+                    asistencias: {}
+                });
+            } else {
+                if (telefonoAlumno && !alumnoGeneral.tlf) {
+                    alumnoGeneral.tlf = telefonoAlumno;
+                }
+            }
+
+            // B. Buscar la actividad exacta y apuntar al alumno
+            let actEncontrada = window.db.Actividades.find(a => {
+                let nomeActDB = (a.nome || "").trim().toUpperCase();
+                return nomeActDB === actividadActual;
+            });
+
+            if (actEncontrada) {
+                if (!actEncontrada.alumnos) actEncontrada.alumnos = [];
+                if (!actEncontrada.alumnos.includes(nombreAlumno)) {
+                    actEncontrada.alumnos.push(nombreAlumno);
+                    contadorAsignaciones++;
+                }
+            }
+        }
+
+        // 3. Guardar cambios
+        if (typeof saveData === 'function') {
+            saveData();
+        } else {
+            localStorage.setItem('melide_db', JSON.stringify(window.db));
+        }
+
+        alert(`¡Proceso rematado con éxito!\n\n- Actividades actualizadas coa nova tempada.\n- Histórico de alumnos gardado.\n- Total de asignacións: ${contadorAsignaciones}`);
+        location.reload();
+    };
+
+    reader.readAsText(input.files[0], 'ISO-8859-1');
 }
