@@ -4,17 +4,12 @@
 
 window.mesFiltroActual = new Date().toISOString().substring(0, 7);
 
-// 1. Carga inicial: Si hay algo en el navegador se usa, si no, se crea vacío
 window.db = JSON.parse(localStorage.getItem('melide_db')) || { 
     Monitores: [], Actividades: [], Aulas: [], Alumnos: [] 
 };
 
-// 2. Tu URL de Google Sheets (No la toques, es la tuya actual)
 window.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwm0XIygblMMbJiKoqSPPGFms-X61I8yipYRQgkqUnuMNK2XV7cTwsYOhxPotAVU0Ol/exec";
 
-/**
- * Guarda los datos y los envía AUTOMÁTICAMENTE a la nube
- */
 function saveData() {
     localStorage.setItem('melide_db', JSON.stringify(window.db));
     if (typeof enviarDatosAWebApp === 'function') {
@@ -108,7 +103,7 @@ function procesarCSVTemporada() {
         return;
     }
 
-    if (!confirm("ATENCIÓN: Isto actualizará as actividades dos alumnos segundo o arquivo CSV, limpando as asignacións antigas pero conservando o histórico xeral de alumnos. Desexas continuar?")) {
+    if (!confirm("ATENCIÓN: Isto actualizará as actividades dos alumnos segundo o arquivo CSV, limpando as asignacións antigas pero conservando o histórico xeral. Desexas continuar?")) {
         return;
     }
 
@@ -120,51 +115,56 @@ function procesarCSVTemporada() {
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiamos el campo 'act' de todos los alumnos para eliminar los grupos antiguos
+        // 1. Limpiamos la actividad asignada a todos los alumnos actuales
         window.db.Alumnos.forEach(al => {
             al.act = "";
         });
 
         let actividadActual = "";
-        let contadorAsignaciones = 0;
+        let contadorAlumnos = 0;
 
-        // 2. Leer línea por línea
+        // 2. Leer línea por línea analizando el punto y coma (;)
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
 
+            // Separar estrictamente por punto y coma (;)
             let partes = linea.split(';');
             let col0 = partes[0] ? partes[0].trim().replace(/^"|"$/g, '') : "";
             let col1 = partes[1] ? partes[1].trim().replace(/^"|"$/g, '') : "";
 
-            if (!col0 || col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE") continue;
+            // Omitir cabecera
+            if (col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE") continue;
 
-            // Si la segunda columna está vacía o no tiene punto y coma, es el título de la actividad
-            if (col1 === "" || partes.length === 1) {
-                actividadActual = col0.trim();
-                
-                // Si la actividad del CSV no existe en la base de datos general de actividades, la creamos automáticamente
-                let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
-                if (!existeAct) {
-                    window.db.Actividades.push({
-                        nome: actividadActual,
-                        dia: "",
-                        hora: "",
-                        aula: "",
-                        monitor: ""
-                    });
+            // CASO A: Es el título de una actividad (ej: "3ª IDADE 1;") -> No tiene teléfono en col1
+            if (partes.length === 1 || col1 === "") {
+                if (col0) {
+                    actividadActual = col0;
+                    
+                    // Asegurar que la actividad existe en la base de datos de actividades
+                    let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
+                    if (!existeAct) {
+                        window.db.Actividades.push({
+                            nome: actividadActual,
+                            dia: "",
+                            hora: "",
+                            aula: "",
+                            monitor: ""
+                        });
+                    }
                 }
                 continue;
             }
 
+            // CASO B: Es un alumno con su teléfono (ej: "ABAD LEON MERCEDES;610757884")
+            if (!actividadActual) continue;
+
             let nombreAlumno = col0.toUpperCase();
             let telefonoAlumno = col1;
 
-            if (!actividadActual) continue;
-
-            // 3. Buscar o crear el alumno en el histórico general y asignarle la actividad actual
+            // Buscar si el alumno ya existe en el histórico general
             let alumnoGeneral = window.db.Alumnos.find(a => (a.nome || "").trim().toUpperCase() === nombreAlumno);
-            
+
             if (!alumnoGeneral) {
                 window.db.Alumnos.push({
                     nome: nombreAlumno,
@@ -181,13 +181,13 @@ function procesarCSVTemporada() {
                     alumnoGeneral.tlf = telefonoAlumno;
                 }
             }
-            contadorAsignaciones++;
+            contadorAlumnos++;
         }
 
-        // 4. Guardar cambios
+        // 3. Guardar cambios en la base de datos
         saveData();
 
-        alert(`¡Proceso rematado con éxito!\n\n- Total de rexistros procesados: ${contadorAsignaciones} alumnos.`);
+        alert(`¡Importación completada con éxito!\n\n- Alumnos procesados e vinculados: ${contadorAlumnos}`);
         location.reload();
     };
 
