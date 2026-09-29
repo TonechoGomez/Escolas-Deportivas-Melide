@@ -121,8 +121,9 @@ function procesarCSVTemporada() {
         const lineas = contenido.split(/\r\n|\n/);
 
         if (!window.db.Alumnos) window.db.Alumnos = [];
+        if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiamos temporalmente el campo 'act' (actividad) de todos los alumnos actuales
+        // 1. Limpiamos el campo 'act' de todos los alumnos actuales para quitar el año pasado
         window.db.Alumnos.forEach(al => {
             al.act = "";
         });
@@ -130,20 +131,20 @@ function procesarCSVTemporada() {
         let actividadActual = "";
         let contadorAsignaciones = 0;
 
-        // 2. Leer línea por línea detectando títulos de actividades y alumnos
+        // 2. Leer línea por línea
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
 
-            let partes = linea.split(/;|,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            let partes = linea.split(';');
             let col0 = partes[0] ? partes[0].trim().replace(/^"|"$/g, '') : "";
             let col1 = partes[1] ? partes[1].trim().replace(/^"|"$/g, '') : "";
 
             if (!col0 || col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE") continue;
 
-            // Si la segunda columna está vacía, es el título de la actividad
+            // Si no hay segunda parte o está vacía, es una cabecera de actividad
             if (col1 === "" || partes.length === 1) {
-                actividadActual = col0.toUpperCase();
+                actividadActual = col0.trim(); // Guardamos el nombre exacto de la actividad del CSV
                 continue;
             }
 
@@ -152,22 +153,33 @@ function procesarCSVTemporada() {
 
             if (!actividadActual) continue;
 
+            // Comprobamos si esa actividad existe en la base de datos de Actividades. Si no existe, la creamos automáticamente para que aparezca.
+            let actExiste = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
+            if (!actExiste) {
+                window.db.Actividades.push({
+                    nome: actividadActual,
+                    dia: "",
+                    hora: "",
+                    aula: "",
+                    monitor: ""
+                });
+            }
+
             // 3. Buscar si el alumno ya existe en el histórico general
             let alumnoGeneral = window.db.Alumnos.find(a => (a.nome || "").trim().toUpperCase() === nombreAlumno);
             
             if (!alumnoGeneral) {
-                // Si no existe, lo creamos nuevo con su actividad y teléfono
                 window.db.Alumnos.push({
                     nome: nombreAlumno,
+                    apelidos: "",
                     tlf: telefonoAlumno,
-                    act: actividadActual,
+                    act: actividadActual, // Vinculamos con el nombre exacto de la actividad
                     estado: "Admitido",
                     status: "Admitido",
                     asistencias: {}
                 });
             } else {
-                // Si ya existe, le asignamos la nueva actividad y actualizamos su teléfono si no lo tenía
-                alumnoGeneral.act = actividadActual;
+                alumnoGeneral.act = actividadActual; // Actualizamos a la nueva actividad
                 if (telefonoAlumno && !alumnoGeneral.tlf) {
                     alumnoGeneral.tlf = telefonoAlumno;
                 }
@@ -175,14 +187,14 @@ function procesarCSVTemporada() {
             contadorAsignaciones++;
         }
 
-        // 4. Guardar cambios en la base de datos y nube
+        // 4. Guardar cambios
         if (typeof saveData === 'function') {
             saveData();
         } else {
             localStorage.setItem('melide_db', JSON.stringify(window.db));
         }
 
-        alert(`¡Proceso rematado con éxito!\n\n- Actividades de alumnos actualizadas.\n- Histórico conservado.\n- Total de asignacións procesadas: ${contadorAsignaciones}`);
+        alert(`¡Proceso rematado con éxito!\n\n- Actividades actualizadas.\n- Alumnos vinculados: ${contadorAsignaciones}`);
         location.reload();
     };
 
