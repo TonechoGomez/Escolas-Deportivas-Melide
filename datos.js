@@ -181,12 +181,11 @@ function procesarCSVTemporada() {
             contadorAlumnos++;
         }
 
-        // 3. Guardar cambios y forzar recarga limpia
+        // 3. Guardar cambios y forzar recarga limpia y navegación automática
         saveData();
 
         alert(`¡Importación completada con éxito!\n\n- Alumnos procesados e vinculados: ${contadorAlumnos}`);
         
-        // Redirigir directamente al panel de actividades para ver los resultados al instante
         if (typeof verSeccion === 'function') {
             verSeccion('actividades');
         } else {
