@@ -115,7 +115,7 @@ function procesarCSVTemporada() {
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiamos la actividad asignada a todos los alumnos actuales
+        // 1. Limpiamos la actividad de los alumnos actuales para arrancar la nueva temporada
         window.db.Alumnos.forEach(al => {
             al.act = "";
         });
@@ -123,25 +123,23 @@ function procesarCSVTemporada() {
         let actividadActual = "";
         let contadorAlumnos = 0;
 
-        // 2. Leer línea por línea analizando el punto y coma (;)
+        // 2. Procesar línea por línea
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
 
-            // Separar estrictamente por punto y coma (;)
             let partes = linea.split(';');
             let col0 = partes[0] ? partes[0].trim().replace(/^"|"$/g, '') : "";
             let col1 = partes[1] ? partes[1].trim().replace(/^"|"$/g, '') : "";
 
-            // Omitir cabecera
             if (col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE") continue;
 
-            // CASO A: Es el título de una actividad (ej: "3ª IDADE 1;") -> No tiene teléfono en col1
+            // Si es título de actividad (no tiene teléfono en la segunda columna)
             if (partes.length === 1 || col1 === "") {
                 if (col0) {
-                    actividadActual = col0;
+                    actividadActual = col0.trim();
                     
-                    // Asegurar que la actividad existe en la base de datos de actividades
+                    // Comprobar si la actividad existe; si no, crearla automáticamente
                     let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
                     if (!existeAct) {
                         window.db.Actividades.push({
@@ -156,13 +154,12 @@ function procesarCSVTemporada() {
                 continue;
             }
 
-            // CASO B: Es un alumno con su teléfono (ej: "ABAD LEON MERCEDES;610757884")
             if (!actividadActual) continue;
 
             let nombreAlumno = col0.toUpperCase();
             let telefonoAlumno = col1;
 
-            // Buscar si el alumno ya existe en el histórico general
+            // Buscar en el histórico general de alumnos
             let alumnoGeneral = window.db.Alumnos.find(a => (a.nome || "").trim().toUpperCase() === nombreAlumno);
 
             if (!alumnoGeneral) {
@@ -184,11 +181,17 @@ function procesarCSVTemporada() {
             contadorAlumnos++;
         }
 
-        // 3. Guardar cambios en la base de datos
+        // 3. Guardar cambios y forzar recarga limpia
         saveData();
 
         alert(`¡Importación completada con éxito!\n\n- Alumnos procesados e vinculados: ${contadorAlumnos}`);
-        location.reload();
+        
+        // Redirigir directamente al panel de actividades para ver los resultados al instante
+        if (typeof verSeccion === 'function') {
+            verSeccion('actividades');
+        } else {
+            location.reload();
+        }
     };
 
     reader.readAsText(input.files[0], 'ISO-8859-1');
