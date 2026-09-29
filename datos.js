@@ -115,7 +115,7 @@ function procesarCSVTemporada() {
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiar la actividad de los alumnos actuales
+        // 1. Limpiar asignaciones anteriores
         window.db.Alumnos.forEach(al => {
             al.act = "";
         });
@@ -123,19 +123,23 @@ function procesarCSVTemporada() {
         let actividadActual = "";
         let contadorAlumnos = 0;
 
-        // 2. Procesar línea por línea evitando confusiones con celdas vacías
+        // 2. Procesar línea por línea con lógica robusta
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
 
+            // Limpiar comillas iniciales/finales de toda la línea si las hubiera
             let partes = linea.split(';');
-            let col0 = partes[0] ? partes[0].trim().replace(/^"|"$/g, '') : "";
-            let col1 = partes[1] ? partes[1].trim().replace(/^"|"$/g, '') : "";
+            let col0 = partes[0] ? partes[0].trim().replace(/^["']|["']$/g, '') : "";
+            let col1 = partes[1] ? partes[1].trim().replace(/^["']|["']$/g, '') : "";
 
-            if (col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE" || col0.toUpperCase() === "MOVIL") continue;
+            // Ignorar cabeceras de columnas repetidas
+            if (col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE" || col0.toUpperCase() === "MOVIL" || col0.toUpperCase() === "MÓVIL") {
+                continue;
+            }
 
-            // Si la segunda columna está vacía y la primera tiene texto, es un título de actividad
-            if (col1 === "" && col0 !== "") {
+            // Identificar si es una fila de grupo (tiene texto en col0 y la col1 está vacía o no existe)
+            if (col0 !== "" && (partes.length === 1 || col1 === "")) {
                 actividadActual = col0;
                 let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
                 if (!existeAct) {
@@ -150,7 +154,7 @@ function procesarCSVTemporada() {
                 continue;
             }
 
-            // Si hay actividad activa y tenemos nombre de alumno en la primera columna
+            // Si tenemos un grupo activo y una celda con nombre de alumno válida
             if (actividadActual && col0 !== "") {
                 let nombreAlumno = col0.toUpperCase();
                 let telefonoAlumno = col1;
@@ -177,7 +181,7 @@ function procesarCSVTemporada() {
             }
         }
 
-        // 3. Guardar y recargar la vista de actividades automáticamente
+        // 3. Guardar y refrescar
         saveData();
 
         alert(`¡Importación completada con éxito!\n\n- Alumnos procesados: ${contadorAlumnos}`);
