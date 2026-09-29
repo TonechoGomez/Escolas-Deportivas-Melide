@@ -115,20 +115,20 @@ function procesarCSVTemporada() {
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiar asignaciones y estados de baja previos para arrancar limpios en la temporada
+        // 1. Limpiar asignaciones previas
         window.db.Alumnos.forEach(al => {
             al.act = "";
-            // Si venían como baja de otro año, los reactivamos automáticamente al aparecer en el nuevo listado activo
-            if (al.estado === "Baixa" || al.status === "Baixa") {
+            if (al.estado === "Baixa" || al.status === "Baixa" || al.status === "baja") {
                 al.estado = "Admitido";
                 al.status = "Admitido";
+                if (al.baja) delete al.baja;
             }
         });
 
         let actividadActual = "";
         let contadorAlumnos = 0;
 
-        // 2. Procesar línea por línea de forma ultra precisa
+        // 2. Procesar línea por línea
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
@@ -137,12 +137,10 @@ function procesarCSVTemporada() {
             let col0 = partes[0] ? partes[0].trim().replace(/^["']|["']$/g, '') : "";
             let col1 = partes[1] ? partes[1].trim().replace(/^["']|["']$/g, '') : "";
 
-            // Omitir cabeceras repetidas
             if (col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE" || col0.toUpperCase() === "MOVIL" || col0.toUpperCase() === "MÓVIL") {
                 continue;
             }
 
-            // Si la segunda columna está vacía, es un título de actividad nuevo
             if (col0 !== "" && (partes.length === 1 || col1 === "")) {
                 actividadActual = col0;
                 let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
@@ -158,7 +156,6 @@ function procesarCSVTemporada() {
                 continue;
             }
 
-            // Si hay actividad activa y un nombre de alumno válido en la primera columna
             if (actividadActual && col0 !== "") {
                 let nombreAlumno = col0.toUpperCase();
                 let telefonoAlumno = col1;
@@ -177,8 +174,10 @@ function procesarCSVTemporada() {
                     });
                 } else {
                     alumnoGeneral.act = actividadActual;
-                    alumnoGeneral.estado = "Admitido"; // Forzamos que esté activo en esta temporada
+                    // Blindaje absoluto contra estados de baja previos
+                    alumnoGeneral.estado = "Admitido";
                     alumnoGeneral.status = "Admitido";
+                    if (alumnoGeneral.baja) delete alumnoGeneral.baja;
                     if (telefonoAlumno && !alumnoGeneral.tlf) {
                         alumnoGeneral.tlf = telefonoAlumno;
                     }
