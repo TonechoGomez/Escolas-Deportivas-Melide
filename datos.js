@@ -103,7 +103,7 @@ function procesarCSVTemporada() {
         return;
     }
 
-    if (!confirm("ATENCIÓN: Isto actualizará as actividades dos alumnos segundo o arquivo CSV, limpando as asignacións antigas pero conservando o histórico xeral. Desexas continuar?")) {
+    if (!confirm("ATENCIÓN: Isto actualizará as actividades dos alumnos segundo o arquivo CSV. Desexas continuar?")) {
         return;
     }
 
@@ -115,33 +115,38 @@ function procesarCSVTemporada() {
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiar asignaciones previas y reactivar estados de baja
+        // 1. Limpiar asignaciones previas y forzar estado activo
         window.db.Alumnos.forEach(al => {
             al.act = "";
-            if (al.estado === "Baixa" || al.status === "Baixa" || al.status === "baja") {
-                al.estado = "Admitido";
-                al.status = "Admitido";
-                if (al.baja) delete al.baja;
-            }
+            al.estado = "Admitido";
+            al.status = "Admitido";
+            if (al.baja) delete al.baja;
         });
 
         let actividadActual = "";
         let contadorAlumnos = 0;
 
-        // 2. Procesar línea por línea con separación precisa de apellidos y nombre
+        // 2. Procesar línea por línea con limpieza avanzada de comillas y separadores
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
 
-            let partes = linea.split(';');
+            // Limpiar comillas iniciales/finales sobrantes que rompen el split
+            linea = linea.replace(/^["']|["']$/g, '');
+
+            // Detectar separador (coma o punto y coma)
+            let separador = linea.includes(';') ? ';' : ',';
+            let partes = linea.split(separador);
+
             let col0 = partes[0] ? partes[0].trim().replace(/^["']|["']$/g, '') : "";
             let col1 = partes[1] ? partes[1].trim().replace(/^["']|["']$/g, '') : "";
 
-            if (col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE" || col0.toUpperCase() === "MOVIL" || col0.toUpperCase() === "MÓVIL") {
+            if (!col0 || col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE" || col0.toUpperCase() === "MOVIL" || col0.toUpperCase() === "MÓVIL") {
                 continue;
             }
 
-            if (col0 !== "" && (partes.length === 1 || col1 === "")) {
+            // Si la segunda columna está vacía, es una cabecera de Actividad
+            if (partes.length === 1 || col1 === "") {
                 actividadActual = col0;
                 let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
                 if (!existeAct) {
@@ -156,10 +161,12 @@ function procesarCSVTemporada() {
                 continue;
             }
 
+            // Si hay actividad y nombre de alumno válido
             if (actividadActual && col0 !== "") {
                 let textoCompleto = col0.toUpperCase().trim();
                 let telefonoAlumno = col1;
 
+                // Separar apellidos y nombre limpiamente
                 let apelidos = "";
                 let nomePila = "";
 
@@ -178,17 +185,11 @@ function procesarCSVTemporada() {
                     }
                 }
 
+                // Buscar si ya existe el alumno en la base de datos general
                 let alumnoGeneral = window.db.Alumnos.find(a => 
                     (a.nome || "").trim().toUpperCase() === nomePila && 
                     (a.apelidos || "").trim().toUpperCase() === apelidos
                 );
-
-                if (!alumnoGeneral) {
-                    let nombreCompletoAntiguo = textoCompleto;
-                    alumnoGeneral = window.db.Alumnos.find(a => 
-                        ((a.apelidos ? a.apelidos + " " : "") + (a.nome || "")).trim().toUpperCase() === nombreCompletoAntiguo
-                    );
-                }
 
                 if (!alumnoGeneral) {
                     window.db.Alumnos.push({
@@ -216,14 +217,8 @@ function procesarCSVTemporada() {
         }
 
         saveData();
-
         alert(`¡Importación completada con éxito!\n\n- Alumnos procesados: ${contadorAlumnos}`);
-        
-        if (typeof verSeccion === 'function') {
-            verSeccion('actividades');
-        } else {
-            location.reload();
-        }
+        location.reload();
     };
 
     reader.readAsText(input.files[0], 'ISO-8859-1');
