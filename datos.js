@@ -10,11 +10,42 @@ window.db = JSON.parse(localStorage.getItem('melide_db')) || {
 
 window.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwm0XIygblMMbJiKoqSPPGFms-X61I8yipYRQgkqUnuMNK2XV7cTwsYOhxPotAVU0Ol/exec";
 
-function saveData() {
+// Guarda en el navegador local (Rápido y seguro)
+function saveDataLocal() {
     localStorage.setItem('melide_db', JSON.stringify(window.db));
-    if (typeof enviarDatosAWebApp === 'function') {
-        enviarDatosAWebApp();
+}
+
+// Envía manualmente los datos a la nube
+async function guardarESincronizarManual() {
+    saveDataLocal(); // Aseguramos guardado local primero
+    const btn = document.getElementById('btn-sync-manual');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = "⏳ SINCRONIZANDO...";
+        btn.style.background = "#94a3b8";
     }
+
+    if (typeof enviarDatosAWebApp === 'function') {
+        const exito = await enviarDatosAWebApp();
+        if (exito !== false) {
+            alert("✅ Datos guardados e sincronizados correctamente coa nube!");
+        } else {
+            alert("⚠️ Os datos gardáronse localmente, pero houbo un problema de conexión coa nube.");
+        }
+    } else {
+        alert("✅ Datos gardados correctamente no dispositivo.");
+    }
+
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = "💾 GARDAR E SINCRONIZAR";
+        btn.style.background = "#16a34a";
+    }
+}
+
+// Mantemos saveData por compatibilidade
+function saveData() {
+    saveDataLocal();
 }
 
 function mostrarDatos() {
@@ -32,8 +63,9 @@ function mostrarDatos() {
     container.innerHTML = `
         <div style="background:white; color:black; padding:25px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.2); text-align:center;">
             <h3 style="margin-top:0; color:#005696;">COPIAS DE SEGURIDADE</h3>
-            <p style="font-size:0.9rem; color:#64748b; margin-bottom:20px;">O sistema sincroniza coa nube automaticamente, pero podes descargar un arquivo manual se o desexas.</p>
+            <p style="font-size:0.9rem; color:#64748b; margin-bottom:20px;">Podes descargar un arquivo de seguridade manual ou forzar a sincronización.</p>
             
+            <button onclick="guardarESincronizarManual()" style="width:100%; padding:15px; background:#16a34a; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">💾 FORZAR SINCRONIZACIÓN COA NUBE</button>
             <button onclick="exportarDatosJSON()" style="width:100%; padding:15px; background:#005696; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📥 DESCARGAR COPIA (JSON)</button>
             
             <div style="margin:15px 0; border-top:1px solid #eee; padding-top:15px;">
@@ -41,7 +73,6 @@ function mostrarDatos() {
                 <input type="file" id="importFile" onchange="importarDatosJSON(event)" style="font-size:0.8rem; width:100%;">
             </div>
             <button onclick="borrarTodaLaBD()" style="width:100%; background:#ef4444; color:white; padding:10px; border:none; border-radius:12px; cursor:pointer; font-size:0.85rem; margin-top:10px;">⚠️ BORRAR TODA A BASE DE DATOS</button>
-            <button onclick="mostrarDatos()" style="margin-top:20px; width:100%; padding:15px; background:#475569; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">⬅️ VOLVER</button>
         </div>
     ` + mostrarSeccionNuevaTemporada();
 }
@@ -61,7 +92,8 @@ function importarDatosJSON(event) {
             const data = JSON.parse(e.target.result);
             if (confirm("Isto sobrescribirá todos os datos. Continuar?")) {
                 window.db = data;
-                saveData();
+                saveDataLocal();
+                guardarESincronizarManual();
                 location.reload();
             }
         } catch (err) { alert("Erro ao ler o arquivo"); }
@@ -73,24 +105,19 @@ function borrarTodaLaBD() {
     if (confirm("⚠️ ESTÁS SEGURO? Perderanse todos os monitores, alumnos e actividades.")) {
         if (confirm("CONFIRMACIÓN FINAL: Esta acción non se pode deshacer.")) {
             window.db = { Monitores: [], Actividades: [], Aulas: [], Alumnos: [] };
-            saveData();
+            saveDataLocal();
+            guardarESincronizarManual();
             location.reload();
         }
     }
 }
-
-// ==========================================
-// MÓDULO NOVA TEMPORADA (IMPORTAR EXCEL/CSV)
-// ==========================================
 
 function mostrarSeccionNuevaTemporada() {
     return `
         <div style="background:white; color:black; padding:25px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.2); text-align:center;">
             <h3 style="margin-top:0; color:#005696;">🚀 NOVA TEMPORADA</h3>
             <p style="font-size:0.9rem; color:#64748b; margin-bottom:15px;">Selecciona o teu arquivo CSV de listados para actualizar as actividades da nova tempada mantendo o histórico xeral.</p>
-            
             <input type="file" id="csv-temporada-input" accept=".csv" style="font-size:0.8rem; width:100%; margin-bottom:15px;">
-            
             <button onclick="procesarCSVTemporada()" style="width:100%; padding:15px; background:#16a34a; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">📥 CARGAR NOVA TEMPORADA</button>
         </div>
     `;
@@ -98,14 +125,8 @@ function mostrarSeccionNuevaTemporada() {
 
 function procesarCSVTemporada() {
     const input = document.getElementById('csv-temporada-input');
-    if (!input || !input.files[0]) {
-        alert("Por favor, selecciona primeiro un arquivo CSV.");
-        return;
-    }
-
-    if (!confirm("ATENCIÓN: Isto actualizará as actividades dos alumnos segundo o arquivo CSV. Desexas continuar?")) {
-        return;
-    }
+    if (!input || !input.files[0]) return alert("Por favor, selecciona primeiro un arquivo CSV.");
+    if (!confirm("ATENCIÓN: Isto actualizará as actividades dos alumnos segundo o arquivo CSV. Desexas continuar?")) return;
 
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -115,7 +136,6 @@ function procesarCSVTemporada() {
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
 
-        // 1. Limpiar asignaciones previas y forzar estado activo
         window.db.Alumnos.forEach(al => {
             al.act = "";
             al.estado = "Admitido";
@@ -126,49 +146,31 @@ function procesarCSVTemporada() {
         let actividadActual = "";
         let contadorAlumnos = 0;
 
-        // 2. Procesar línea por línea con limpieza avanzada de comillas y separadores
         for (let i = 0; i < lineas.length; i++) {
             let linea = lineas[i].trim();
             if (!linea) continue;
-
-            // Limpiar comillas iniciales/finales sobrantes que rompen el split
             linea = linea.replace(/^["']|["']$/g, '');
-
-            // Detectar separador (coma o punto y coma)
             let separador = linea.includes(';') ? ';' : ',';
             let partes = linea.split(separador);
 
             let col0 = partes[0] ? partes[0].trim().replace(/^["']|["']$/g, '') : "";
             let col1 = partes[1] ? partes[1].trim().replace(/^["']|["']$/g, '') : "";
 
-            if (!col0 || col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE" || col0.toUpperCase() === "MOVIL" || col0.toUpperCase() === "MÓVIL") {
-                continue;
-            }
+            if (!col0 || col0.toUpperCase() === "ACTIVIDAD" || col0.toUpperCase() === "ACTIVIDADE" || col0.toUpperCase() === "MOVIL" || col0.toUpperCase() === "MÓVIL") continue;
 
-            // Si la segunda columna está vacía, es una cabecera de Actividad
             if (partes.length === 1 || col1 === "") {
                 actividadActual = col0;
                 let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
                 if (!existeAct) {
-                    window.db.Actividades.push({
-                        nome: actividadActual,
-                        dia: "",
-                        hora: "",
-                        aula: "",
-                        monitor: ""
-                    });
+                    window.db.Actividades.push({ nome: actividadActual, dia: "", hora: "", aula: "", monitor: "" });
                 }
                 continue;
             }
 
-            // Si hay actividad y nombre de alumno válido
             if (actividadActual && col0 !== "") {
                 let textoCompleto = col0.toUpperCase().trim();
                 let telefonoAlumno = col1;
-
-                // Separar apellidos y nombre limpiamente
-                let apelidos = "";
-                let nomePila = "";
+                let apelidos = "", nomePila = "";
 
                 if (textoCompleto.includes(",")) {
                     let fragmentos = textoCompleto.split(",");
@@ -185,7 +187,6 @@ function procesarCSVTemporada() {
                     }
                 }
 
-                // Buscar si ya existe el alumno en la base de datos general
                 let alumnoGeneral = window.db.Alumnos.find(a => 
                     (a.nome || "").trim().toUpperCase() === nomePila && 
                     (a.apelidos || "").trim().toUpperCase() === apelidos
@@ -193,30 +194,22 @@ function procesarCSVTemporada() {
 
                 if (!alumnoGeneral) {
                     window.db.Alumnos.push({
-                        nome: nomePila,
-                        apelidos: apelidos,
-                        tlf: telefonoAlumno,
-                        act: actividadActual,
-                        estado: "Admitido",
-                        status: "Admitido",
-                        asistencias: {}
+                        nome: nomePila, apelidos: apelidos, tlf: telefonoAlumno,
+                        act: actividadActual, estado: "Admitido", status: "Admitido", asistencias: {}
                     });
                 } else {
-                    alumnoGeneral.nome = nomePila;
-                    alumnoGeneral.apelidos = apelidos;
-                    alumnoGeneral.act = actividadActual;
-                    alumnoGeneral.estado = "Admitido";
+                    alumnoGeneral.nome = nomePila; alumnoGeneral.apelidos = apelidos;
+                    alumnoGeneral.act = actividadActual; alumnoGeneral.estado = "Admitido";
                     alumnoGeneral.status = "Admitido";
                     if (alumnoGeneral.baja) delete alumnoGeneral.baja;
-                    if (telefonoAlumno && !alumnoGeneral.tlf) {
-                        alumnoGeneral.tlf = telefonoAlumno;
-                    }
+                    if (telefonoAlumno && !alumnoGeneral.tlf) alumnoGeneral.tlf = telefonoAlumno;
                 }
                 contadorAlumnos++;
             }
         }
 
-        saveData();
+        saveDataLocal();
+        guardarESincronizarManual();
         alert(`¡Importación completada con éxito!\n\n- Alumnos procesados: ${contadorAlumnos}`);
         location.reload();
     };
