@@ -22,9 +22,12 @@ function mostrarActividades() {
 
     if (actions) {
         actions.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom: 10px; flex-wrap:wrap; gap:10px;">
                 <h2 style="margin:0; color:white; font-size: 1.4rem;">ACTIVIDADES</h2>
-                <button onclick="nuevaActividad()" style="background:#16a34a; color:white; padding:10px 20px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">+ NOVA ACTIVIDADE</button>
+                <div style="display:flex; gap:10px;">
+                    <button id="btn-sync-manual" onclick="guardarESincronizarManual()" style="background:#16a34a; color:white; padding:10px 18px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.2);">💾 GARDAR E SINCRONIZAR</button>
+                    <button onclick="nuevaActividad()" style="background:#0284c7; color:white; padding:10px 18px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">+ NOVA ACTIVIDADE</button>
+                </div>
             </div>
         `;
     }
@@ -37,18 +40,12 @@ function renderizarListaActividades() {
     if (!container) return;
 
     let listaAct = [...(window.db.Actividades || [])];
-    
-    // Ordenación natural
     listaAct.sort((a, b) => (a.nome || "").toString().localeCompare((b.nome || "").toString(), 'es', { numeric: true }));
 
     container.style.display = "grid";
-    container.style.gridTemplateColumns = "repeat(6, minmax(0, 1fr))"; 
+    container.style.gridTemplateColumns = "repeat(auto-fill, minmax(280px, 1fr))"; 
     container.style.gap = "10px";
     container.innerHTML = "";
-
-    if (window.innerWidth < 1200) container.style.gridTemplateColumns = "repeat(4, 1fr)";
-    if (window.innerWidth < 900) container.style.gridTemplateColumns = "repeat(2, 1fr)";
-    if (window.innerWidth < 600) container.style.gridTemplateColumns = "repeat(1, 1fr)";
 
     listaAct.forEach((act) => {
         const valNombre = act.nome || "SEN NOME";
@@ -127,7 +124,7 @@ function editarActividad(index) {
             <select id="edit-act-monitor" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
                 ${monitores.map(m => `<option value="${m.nome}" ${act.monitor === m.nome ? 'selected' : ''}>${m.nome}</option>`).join('')}
             </select>
-            <button onclick="actualizarActividade(${index})" style="width:100%; background:#005696; color:white; padding:15px; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">GARDAR CAMBIOS</button>
+            <button onclick="actualizarActividade(${index})" style="width:100%; background:#005696; color:white; padding:15px; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">APLICAR CAMBIOS</button>
         </div>
     `;
     document.getElementById('modal-overlay').classList.add('active');
@@ -139,7 +136,10 @@ function actualizarActividade(index) {
     window.db.Actividades[index].hora = document.getElementById('edit-act-hora').value;
     window.db.Actividades[index].aula = document.getElementById('edit-act-aula').value;
     window.db.Actividades[index].monitor = document.getElementById('edit-act-monitor').value;
-    saveData(); closeModal(); renderizarListaActividades();
+    
+    saveDataLocal(); // Guarda localmente para agilidad
+    closeModal(); 
+    renderizarListaActividades();
 }
 
 function nuevaActividad() {
@@ -175,7 +175,7 @@ function nuevaActividad() {
                 <option value="">Selecciona Monitor/a</option>
                 ${monitores.map(m => `<option value="${m.nome}">${m.nome}</option>`).join('')}
             </select>
-            <button onclick="gardarActividade()" style="background:#005696; color:white; padding:12px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">GARDAR</button>
+            <button onclick="gardarActividade()" style="background:#005696; color:white; padding:12px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">CREAR</button>
         </div>
     `;
     document.getElementById('modal-overlay').classList.add('active');
@@ -191,13 +191,15 @@ function gardarActividade() {
         aula: document.getElementById('act-aula').value, 
         monitor: document.getElementById('act-monitor').value 
     });
-    saveData(); closeModal(); renderizarListaActividades();
+    saveDataLocal(); 
+    closeModal(); 
+    renderizarListaActividades();
 }
 
 function borrarActividad(index) {
     if (confirm("¿Borrar actividade?")) {
         window.db.Actividades.splice(index, 1);
-        saveData();
+        saveDataLocal();
         renderizarListaActividades();
     }
 }
