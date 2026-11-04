@@ -79,8 +79,32 @@ function mostrarDatos() {
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (FILTRADO COMPLETO)
 // ==========================================
+
+// Función para comprobar se unha data coincide co día da semana da actividade
+function esDiaDeClaseValido(fechaStr, textoDiaActividad) {
+    if (!fechaStr || !textoDiaActividad) return false;
+    
+    // Límite mínimo fixo de inicio: 1 de novembro de 2026
+    if (fechaStr < "2026-11-01") return false;
+
+    const d = new Date(fechaStr);
+    if (isNaN(d.getTime())) return false;
+    const diaSemanaNum = d.getDay(); // 0: Domingo, 1: Luns, 2: Martes, 3: Mércores, 4: Xoves, 5: Venres, 6: Sábado
+
+    const txt = textoDiaActividad.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    if (txt.includes("LUNS") && diaSemanaNum === 1) return true;
+    if (txt.includes("MARTES") && diaSemanaNum === 2) return true;
+    if (txt.includes("MERCORES") && diaSemanaNum === 3) return true;
+    if (txt.includes("XOVES") && diaSemanaNum === 4) return true;
+    if (txt.includes("VENRES") && diaSemanaNum === 5) return true;
+    if (txt.includes("SABADO") && diaSemanaNum === 6) return true;
+    if (txt.includes("DOMINGO") && diaSemanaNum === 0) return true;
+
+    return false;
+}
 
 function abrirEstadisticasAsistencia() {
     const container = document.getElementById('data-container');
@@ -121,21 +145,31 @@ function renderizarContenidoEstadisticasApp() {
     const contenedorRes = document.getElementById('resultado-estadisticas-app');
     if (!contenedorRes) return;
 
-    const alumnos = window.db.Alumnos || [];
     const actividades = window.db.Actividades || [];
+    
+    // FILTRADO EXCLUSIVO: Só computamos alumnos que teñan unha actividade asignada e activa
+    const alumnos = (window.db.Alumnos || []).filter(al => {
+        if (!al.act || al.act.trim() === "") return false;
+        return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
+    });
 
-    let totalSesiones = 0;
-    let totalAsistencias = 0;
+    let totalRexistros = 0;
+    let totalPresentes = 0;
 
     alumnos.forEach(al => {
+        const actAsociada = actividades.find(a => (a.nome || "").trim().toUpperCase() === (al.act || "").trim().toUpperCase());
+        const diasClaseAct = actAsociada ? actAsociada.dia : "";
+
         const asist = al.asistencias || {};
-        Object.values(asist).forEach(v => {
-            totalSesiones++;
-            if (v === true) totalAsistencias++;
+        Object.entries(asist).forEach(([fechaControl, valor]) => {
+            if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, diasClaseAct)) {
+                totalRexistros++;
+                if (valor === true) totalPresentes++;
+            }
         });
     });
 
-    const porcGlobal = totalSesiones > 0 ? Math.round((totalAsistencias / totalSesiones) * 100) : 0;
+    const porcGlobal = totalRexistros > 0 ? Math.round((totalPresentes / totalRexistros) * 100) : 0;
 
     let html = "";
 
@@ -143,16 +177,16 @@ function renderizarContenidoEstadisticasApp() {
         html = `
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px;">
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #005696;">
-                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">MEDIA GLOBAL</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${porcGlobal}%</span>
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">MEDIA GLOBAL (Dende Nov)</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalRexistros > 0 ? porcGlobal + '%' : 'Sen rexistros'}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #2563eb;">
-                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">TOTAL CLASES REXISTRADAS</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalSesiones}</span>
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">TOTAL CLASES VÁLIDAS</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalRexistros}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #16a34a;">
                     <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">PRESENZAS CONFIRMADAS</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalAsistencias}</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalPresentes}</span>
                 </div>
             </div>
         `;
@@ -162,7 +196,7 @@ function renderizarContenidoEstadisticasApp() {
                 <table style="width:100%; border-collapse:collapse; font-size:0.9rem; text-align:left;">
                     <thead>
                         <tr style="background:#f1f5f9; color:#475569;">
-                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumnos</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
+                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade (Días)</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumnos Activos</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
                             ${opcion === 'monitor' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Monitor/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividades</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Media</th>' : ''}
                             ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
                         </tr>
@@ -174,20 +208,29 @@ function renderizarContenidoEstadisticasApp() {
             actividades.forEach(act => {
                 const alAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === (act.nome || "").trim().toUpperCase());
                 let ses = 0, pres = 0;
+
                 alAct.forEach(a => {
-                    Object.values(a.asistencias || {}).forEach(v => { ses++; if(v) pres++; });
+                    const asist = a.asistencias || {};
+                    Object.entries(asist).forEach(([fechaControl, valor]) => {
+                        if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, act.dia)) {
+                            ses++;
+                            if (valor === true) pres++;
+                        }
+                    });
                 });
-                const pct = ses > 0 ? Math.round((pres / ses) * 100) : 0;
+                const pct = ses > 0 ? Math.round((pres / ses) * 100) : null;
 
                 html += `
                     <tr style="border-bottom:1px solid #e2e8f0;">
-                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${act.nome}</td>
-                        <td style="padding:12px; color:#334155;">${alAct.length}</td>
+                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${act.nome} <span style="font-weight:normal; font-size:0.75rem; color:#64748b;">(${act.dia || 'Sen día'})</span></td>
+                        <td style="padding:12px; color:#334155;">${alAct.length} alumnos</td>
                         <td style="padding:12px; color:#334155;">
-                            <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
-                                <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
-                            </div>
-                            <strong>${pct}%</strong>
+                            ${pct !== null ? `
+                                <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
+                                    <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
+                                </div>
+                                <strong>${pct}%</strong>
+                            ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
                         </td>
                     </tr>
                 `;
@@ -196,42 +239,66 @@ function renderizarContenidoEstadisticasApp() {
             const monitoresUnicos = [...new Set(actividades.map(a => a.monitor).filter(Boolean))];
             
             monitoresUnicos.forEach(mon => {
-                const actsMon = actividades.filter(a => a.monitor === mon).map(a => a.nome);
-                const alMon = alumnos.filter(a => actsMon.includes(a.act));
+                const actsMon = actividades.filter(a => a.monitor === mon);
+                const nomesActs = actsMon.map(a => a.nome);
+                const alMon = alumnos.filter(a => nomesActs.includes(a.act));
+
                 let ses = 0, pres = 0;
                 alMon.forEach(a => {
-                    Object.values(a.asistencias || {}).forEach(v => { ses++; if(v) pres++; });
+                    const actAsociada = actsMon.find(am => am.nome === a.act);
+                    const diasAct = actAsociada ? actAsociada.dia : "";
+
+                    const asist = a.asistencias || {};
+                    Object.entries(asist).forEach(([fechaControl, valor]) => {
+                        if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, diasAct)) {
+                            ses++;
+                            if (valor === true) pres++;
+                        }
+                    });
                 });
-                const pct = ses > 0 ? Math.round((pres / ses) * 100) : 0;
+                const pct = ses > 0 ? Math.round((pres / ses) * 100) : null;
 
                 html += `
                     <tr style="border-bottom:1px solid #e2e8f0;">
                         <td style="padding:12px; font-weight:bold; color:#0f172a;">${mon}</td>
-                        <td style="padding:12px; color:#334155;">${actsMon.join(', ') || 'Ningunha'}</td>
+                        <td style="padding:12px; color:#334155;">${nomesActs.join(', ') || 'Ningunha'}</td>
                         <td style="padding:12px; color:#334155;">
-                            <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
-                                <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
-                            </div>
-                            <strong>${pct}%</strong>
+                            ${pct !== null ? `
+                                <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
+                                    <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
+                                </div>
+                                <strong>${pct}%</strong>
+                            ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
                         </td>
                     </tr>
                 `;
             });
         } else if (opcion === 'alumno') {
             alumnos.forEach(al => {
+                const actAsociada = actividades.find(a => (a.nome || "").trim().toUpperCase() === (al.act || "").trim().toUpperCase());
+                const diasAct = actAsociada ? actAsociada.dia : "";
+
                 let ses = 0, pres = 0;
-                Object.values(al.asistencias || {}).forEach(v => { ses++; if(v) pres++; });
-                const pct = ses > 0 ? Math.round((pres / ses) * 100) : 0;
+                const asist = al.asistencias || {};
+                Object.entries(asist).forEach(([fechaControl, valor]) => {
+                    if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, diasAct)) {
+                        ses++;
+                        if (valor === true) pres++;
+                    }
+                });
+                const pct = ses > 0 ? Math.round((pres / ses) * 100) : null;
 
                 html += `
                     <tr style="border-bottom:1px solid #e2e8f0;">
                         <td style="padding:12px; font-weight:bold; color:#0f172a;">${al.nome} ${al.apelidos || ''}</td>
                         <td style="padding:12px; color:#334155;">${al.act || 'Sen actividade'}</td>
                         <td style="padding:12px; color:#334155;">
-                            <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
-                                <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
-                            </div>
-                            <strong>${pct}%</strong>
+                            ${pct !== null ? `
+                                <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
+                                    <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
+                                </div>
+                                <strong>${pct}%</strong>
+                            ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
                         </td>
                     </tr>
                 `;
@@ -333,7 +400,7 @@ function procesarCSVTemporada() {
                 actividadActual = col0;
                 let existeAct = window.db.Actividades.find(a => (a.nome || "").trim().toUpperCase() === actividadActual.toUpperCase());
                 if (!existeAct) {
-                    window.db.Actividades.push({ nome: actividadActual, dia: "", hora: "", aula: "", monitor: "" });
+                    window.db.Actividades.push({ nome: actividadActual, dia: "", hora: "", aula: "", monitor: "", creacion: new Date().toISOString().split('T')[0] });
                 }
                 continue;
             }
