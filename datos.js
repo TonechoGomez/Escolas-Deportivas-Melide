@@ -79,7 +79,7 @@ function mostrarDatos() {
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (CÁLCULO REAL SOBRE MATRICULADOS)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (EXACTO)
 // ==========================================
 
 function abrirEstadisticasAsistencia() {
@@ -129,7 +129,7 @@ function renderizarContenidoEstadisticasApp() {
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    // RECOLLIDA DE FECHAS DE CLASE REGISTRADAS (Únicamente onde hai algún check marcado dende novembro)
+    // 1. OBTENER FECHAS REAIS DE CLASE (Dende o 1 de novembro e onde hai algún check marcado)
     const fechasClasesPorActividad = {};
     actividades.forEach(act => {
         const nombreAct = act.nome.trim().toUpperCase();
@@ -138,8 +138,8 @@ function renderizarContenidoEstadisticasApp() {
         const alumnosAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
         alumnosAct.forEach(a => {
             const asist = a.asistencias || {};
-            Object.keys(asist).forEach(fecha => {
-                if (fecha >= "2026-11-01" && asist[fecha] === true) {
+            Object.entries(asist).forEach(([fecha, valor]) => {
+                if (fecha >= "2026-11-01" && valor === true) {
                     fechasSet.add(fecha);
                 }
             });
@@ -157,18 +157,17 @@ function renderizarContenidoEstadisticasApp() {
         actividades.forEach(act => {
             const nombreAct = act.nome.trim().toUpperCase();
             const fechas = fechasClasesPorActividad[nombreAct] || [];
-            totalHorasClaseCentro += fechas.length;
+            if (fechas.length === 0) return; // Ignoramos actividades sen rexistros
 
+            totalHorasClaseCentro += fechas.length;
             const alumnosAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
-            const totalPosiblesActividad = fechas.length * alumnosAct.length;
-            totalPosiblesCentro += totalPosiblesActividad;
+            const totalPosiblesAct = fechas.length * alumnosAct.length;
+            totalPosiblesCentro += totalPosiblesAct;
 
             alumnosAct.forEach(al => {
                 const asist = al.asistencias || {};
-                fechas.forEach(fecha => {
-                    if (asist[fecha] === true) {
-                        totalAsistenciasCentro++;
-                    }
+                fechas.forEach(f => {
+                    if (asist[f] === true) totalAsistenciasCentro++;
                 });
             });
         });
@@ -183,11 +182,11 @@ function renderizarContenidoEstadisticasApp() {
                     <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalHorasClaseCentro} hrs</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #16a34a;">
-                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">Nº PRESENZAS CONFIRMADAS</span>
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">Nº ASISTENCIAS</span>
                     <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalAsistenciasCentro}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #ef4444;">
-                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">Nº AUSENCIAS / FALTAS</span>
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">Nº DE BAIXAS / FALTAS</span>
                     <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalAusenciasCentro >= 0 ? totalAusenciasCentro : 0}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #005696;">
@@ -204,7 +203,7 @@ function renderizarContenidoEstadisticasApp() {
                         <tr style="background:#f1f5f9; color:#475569;">
                             ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Horas de Clase</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Nº Alumnos</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Relación Alumnos/Asistencias</th>' : ''}
                             ${opcion === 'monitor' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Monitor/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividades</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Media</th>' : ''}
-                            ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividades Asistidas</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia por Actividade e Total</th>' : ''}
+                            ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade Asignada</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
@@ -217,6 +216,19 @@ function renderizarContenidoEstadisticasApp() {
                 const fechas = fechasClasesPorActividad[nombreAct] || [];
                 const horasClase = fechas.length;
 
+                // Se non hai horas de clase rexistradas, mostramos sen rexistros
+                if (horasClase === 0) {
+                    html += `
+                        <tr style="border-bottom:1px solid #e2e8f0;">
+                            <td style="padding:12px; font-weight:bold; color:#0f172a;">${act.nome}</td>
+                            <td style="padding:12px; color:#334155;">0 hrs</td>
+                            <td style="padding:12px; color:#334155;">${alAct.length} alumnos</td>
+                            <td style="padding:12px; color:#94a3b8; font-style:italic;">Sen rexistros</td>
+                        </tr>
+                    `;
+                    return;
+                }
+
                 let presencias = 0;
                 alAct.forEach(al => {
                     const asist = al.asistencias || {};
@@ -225,9 +237,8 @@ function renderizarContenidoEstadisticasApp() {
                     });
                 });
 
-                // Total posible = Horas de clase x Número total de alumnos matriculados
                 const totalPosibles = horasClase * alAct.length;
-                const pct = totalPosibles > 0 ? Math.round((presencias / totalPosibles) * 100) : null;
+                const pct = totalPosibles > 0 ? Math.round((presencias / totalPosibles) * 100) : 0;
 
                 html += `
                     <tr style="border-bottom:1px solid #e2e8f0;">
@@ -235,12 +246,10 @@ function renderizarContenidoEstadisticasApp() {
                         <td style="padding:12px; color:#334155;">${horasClase} hrs</td>
                         <td style="padding:12px; color:#334155;">${alAct.length} alumnos</td>
                         <td style="padding:12px; color:#334155;">
-                            ${pct !== null ? `
-                                <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
-                                    <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
-                                </div>
-                                <strong>${pct}%</strong> (${presencias} asistencias de ${totalPosibles} posibles)
-                            ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros</span>'}
+                            <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
+                                <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
+                            </div>
+                            <strong>${pct}%</strong> (${presencias} asistencias de ${totalPosibles} posibles)
                         </td>
                     </tr>
                 `;
@@ -255,21 +264,25 @@ function renderizarContenidoEstadisticasApp() {
                 let totalHorasMon = 0;
                 let presenciasMon = 0;
                 let posiblesMon = 0;
+                let tenRexistros = false;
 
                 actsMon.forEach(act => {
                     const nombreAct = act.nome.trim().toUpperCase();
                     const alAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
                     const fechas = fechasClasesPorActividad[nombreAct] || [];
-                    totalHorasMon += fechas.length;
+                    
+                    if (fechas.length > 0) {
+                        tenRexistros = true;
+                        totalHorasMon += fechas.length;
+                        posiblesMon += fechas.length * alAct.length;
 
-                    posiblesMon += fechas.length * alAct.length;
-
-                    alAct.forEach(al => {
-                        const asist = al.asistencias || {};
-                        fechas.forEach(f => {
-                            if (asist[f] === true) presenciasMon++;
+                        alAct.forEach(al => {
+                            const asist = al.asistencias || {};
+                            fechas.forEach(f => {
+                                if (asist[f] === true) presenciasMon++;
+                            });
                         });
-                    });
+                    }
                 });
 
                 const pct = posiblesMon > 0 ? Math.round((presenciasMon / posiblesMon) * 100) : null;
