@@ -79,7 +79,7 @@ function mostrarDatos() {
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (ESTRICTO)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (CÁLCULO REAL SOBRE MATRICULADOS)
 // ==========================================
 
 function abrirEstadisticasAsistencia() {
@@ -129,7 +129,7 @@ function renderizarContenidoEstadisticasApp() {
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    // RECOLLIDA DE FECHAS CLAVE DE CLASE: Únicamente donde hai rexistros reais gardados dende o 1 de novembro
+    // RECOLLIDA DE FECHAS DE CLASE REGISTRADAS (Únicamente onde hai algún check marcado dende novembro)
     const fechasClasesPorActividad = {};
     actividades.forEach(act => {
         const nombreAct = act.nome.trim().toUpperCase();
@@ -138,9 +138,8 @@ function renderizarContenidoEstadisticasApp() {
         const alumnosAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
         alumnosAct.forEach(a => {
             const asist = a.asistencias || {};
-            Object.entries(asist).forEach(([fecha, valor]) => {
-                // EXIXIMOS QUE A DATA SEAN DE NOVEMBRO EN ADIANTE E QUE O VALOR SEXA EXPLÍCITAMENTE UN BOOLEANO VÁLIDO
-                if (fecha >= "2026-11-01" && (valor === true || valor === false)) {
+            Object.keys(asist).forEach(fecha => {
+                if (fecha >= "2026-11-01" && asist[fecha] === true) {
                     fechasSet.add(fecha);
                 }
             });
@@ -153,7 +152,7 @@ function renderizarContenidoEstadisticasApp() {
     if (opcion === 'totales') {
         let totalHorasClaseCentro = 0;
         let totalAsistenciasCentro = 0;
-        let totalAusenciasCentro = 0;
+        let totalPosiblesCentro = 0;
 
         actividades.forEach(act => {
             const nombreAct = act.nome.trim().toUpperCase();
@@ -161,21 +160,21 @@ function renderizarContenidoEstadisticasApp() {
             totalHorasClaseCentro += fechas.length;
 
             const alumnosAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
-            
+            const totalPosiblesActividad = fechas.length * alumnosAct.length;
+            totalPosiblesCentro += totalPosiblesActividad;
+
             alumnosAct.forEach(al => {
                 const asist = al.asistencias || {};
                 fechas.forEach(fecha => {
                     if (asist[fecha] === true) {
                         totalAsistenciasCentro++;
-                    } else if (asist[fecha] === false) {
-                        totalAusenciasCentro++;
                     }
                 });
             });
         });
 
-        const totalEsperadosCentro = totalAsistenciasCentro + totalAusenciasCentro;
-        const porcGlobal = totalEsperadosCentro > 0 ? Math.round((totalAsistenciasCentro / totalEsperadosCentro) * 100) : 0;
+        const totalAusenciasCentro = totalPosiblesCentro - totalAsistenciasCentro;
+        const porcGlobal = totalPosiblesCentro > 0 ? Math.round((totalAsistenciasCentro / totalPosiblesCentro) * 100) : 0;
 
         html = `
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px;">
@@ -189,7 +188,7 @@ function renderizarContenidoEstadisticasApp() {
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #ef4444;">
                     <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">Nº AUSENCIAS / FALTAS</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalAusenciasCentro}</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalAusenciasCentro >= 0 ? totalAusenciasCentro : 0}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #005696;">
                     <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">MEDIA GLOBAL DE ASISTENCIA</span>
@@ -219,18 +218,15 @@ function renderizarContenidoEstadisticasApp() {
                 const horasClase = fechas.length;
 
                 let presencias = 0;
-                let totalPosibles = 0;
-
                 alAct.forEach(al => {
                     const asist = al.asistencias || {};
                     fechas.forEach(f => {
-                        if (asist[f] === true || asist[f] === false) {
-                            totalPosibles++;
-                            if (asist[f] === true) presencias++;
-                        }
+                        if (asist[f] === true) presencias++;
                     });
                 });
 
+                // Total posible = Horas de clase x Número total de alumnos matriculados
+                const totalPosibles = horasClase * alAct.length;
                 const pct = totalPosibles > 0 ? Math.round((presencias / totalPosibles) * 100) : null;
 
                 html += `
@@ -243,7 +239,7 @@ function renderizarContenidoEstadisticasApp() {
                                 <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
                                     <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
                                 </div>
-                                <strong>${pct}%</strong> (${presencias}/${totalPosibles})
+                                <strong>${pct}%</strong> (${presencias} asistencias de ${totalPosibles} posibles)
                             ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros</span>'}
                         </td>
                     </tr>
@@ -266,13 +262,12 @@ function renderizarContenidoEstadisticasApp() {
                     const fechas = fechasClasesPorActividad[nombreAct] || [];
                     totalHorasMon += fechas.length;
 
+                    posiblesMon += fechas.length * alAct.length;
+
                     alAct.forEach(al => {
                         const asist = al.asistencias || {};
                         fechas.forEach(f => {
-                            if (asist[f] === true || asist[f] === false) {
-                                posiblesMon++;
-                                if (asist[f] === true) presenciasMon++;
-                            }
+                            if (asist[f] === true) presenciasMon++;
                         });
                     });
                 });
@@ -295,10 +290,11 @@ function renderizarContenidoEstadisticasApp() {
                 `;
             });
         } else if (opcion === 'alumno') {
-            // Mostramos só alumnos que teñan asistencias reais rexistradas
             const alumnosConRexistros = alumnos.filter(al => {
+                const nombreAct = (al.act || "").trim().toUpperCase();
+                const fechas = fechasClasesPorActividad[nombreAct] || [];
                 const asist = al.asistencias || {};
-                return Object.entries(asist).some(([f, v]) => f >= "2026-11-01" && (v === true || v === false));
+                return fechas.some(f => asist[f] === true);
             });
 
             if (alumnosConRexistros.length === 0) {
@@ -309,14 +305,11 @@ function renderizarContenidoEstadisticasApp() {
                     const fechas = fechasClasesPorActividad[nombreAct] || [];
 
                     let presenciasAl = 0;
-                    let totalAl = 0;
+                    const totalAl = fechas.length;
                     const asist = al.asistencias || {};
 
                     fechas.forEach(f => {
-                        if (asist[f] === true || asist[f] === false) {
-                            totalAl++;
-                            if (asist[f] === true) presenciasAl++;
-                        }
+                        if (asist[f] === true) presenciasAl++;
                     });
 
                     const pctAct = totalAl > 0 ? Math.round((presenciasAl / totalAl) * 100) : 0;
