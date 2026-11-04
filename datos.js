@@ -17,7 +17,7 @@ function saveDataLocal() {
 
 // Envía manualmente los datos a la nube
 async function guardarESincronizarManual() {
-    saveDataLocal(); // Aseguramos guardado local primero
+    saveDataLocal(); // Aseguramos guardado local primeiro
     const btn = document.getElementById('btn-sync-manual');
     if (btn) {
         btn.disabled = true;
@@ -67,7 +67,6 @@ function mostrarDatos() {
             
             <button onclick="abrirEstadisticasAsistencia()" style="width:100%; padding:15px; background:#0284c7; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📊 VER ESTADÍSTICAS DE ASISTENCIA</button>
             <button onclick="guardarESincronizarManual()" style="width:100%; padding:15px; background:#16a34a; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">💾 FORZAR SINCRONIZACIÓN COA NUBE</button>
-            <button onclick="limpiarTotalAsistenciasFantasmas()" style="width:100%; padding:15px; background:#d97706; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">🧹 PURGA TOTAL DE ASISTENCIAS</button>
             <button onclick="exportarDatosJSON()" style="width:100%; padding:15px; background:#005696; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📥 DESCARGAR COPIA (JSON)</button>
             
             <div style="margin:15px 0; border-top:1px solid #eee; padding-top:15px;">
@@ -79,22 +78,8 @@ function mostrarDatos() {
     ` + mostrarSeccionNuevaTemporada();
 }
 
-// Función de purga profunda para eliminar calquera rexistro corrupto ou residual
-function limpiarTotalAsistenciasFantasmas() {
-    if (confirm("⚠️ ATENCIÓN: Isto eliminará por completo calquera rexistro de asistencia anterior en todos os alumnos para partir dunha base 100% limpa. Desexas continuar?")) {
-        const alumnos = window.db.Alumnos || [];
-        alumnos.forEach(al => {
-            al.asistencias = {}; // Borrado total e limpo do obxecto de asistencias
-        });
-        saveDataLocal();
-        guardarESincronizarManual();
-        alert("✨ Purga completada con éxito. Todos os contadores están a cero.");
-        location.reload();
-    }
-}
-
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (EXTREMADAMENTE RIGUROSO)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (Dende o 1 de Novembro)
 // ==========================================
 
 function abrirEstadisticasAsistencia() {
@@ -144,7 +129,7 @@ function renderizarContenidoEstadisticasApp() {
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    // MAPEO ESTRICTO: Contamos unicamente fechas onde o alumno ten a actividade activa NESTES MOMENTOS e o valor é true absoluto
+    // FILTRO ESTRICTO: Só se teñen en conta rexistros cuxa data sea >= 2026-11-01
     const fechasClasesPorActividad = {};
     actividades.forEach(act => {
         const nombreAct = act.nome.trim().toUpperCase();
@@ -193,7 +178,7 @@ function renderizarContenidoEstadisticasApp() {
         html = `
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px;">
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #2563eb;">
-                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">Nº HORAS CLASE TOTAIS</span>
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">Nº HORAS CLASE TOTAIS (Dende Nov)</span>
                     <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalHorasClaseCentro} hrs</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #16a34a;">
@@ -216,7 +201,7 @@ function renderizarContenidoEstadisticasApp() {
                 <table style="width:100%; border-collapse:collapse; font-size:0.9rem; text-align:left;">
                     <thead>
                         <tr style="background:#f1f5f9; color:#475569;">
-                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Horas de Clase</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Nº Alumnos</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Relación Alumnos/Asistencias</th>' : ''}
+                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Horas (Dende Nov)</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Nº Alumnos</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Relación Alumnos/Asistencias</th>' : ''}
                             ${opcion === 'monitor' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Monitor/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividades</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Media</th>' : ''}
                             ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade Asignada</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
                         </tr>
@@ -237,7 +222,7 @@ function renderizarContenidoEstadisticasApp() {
                             <td style="padding:12px; font-weight:bold; color:#0f172a;">${act.nome}</td>
                             <td style="padding:12px; color:#334155;">0 hrs</td>
                             <td style="padding:12px; color:#334155;">${alAct.length} alumnos</td>
-                            <td style="padding:12px; color:#94a3b8; font-style:italic;">Sen rexistros</td>
+                            <td style="padding:12px; color:#94a3b8; font-style:italic;">Sen rexistros dende Novembro</td>
                         </tr>
                     `;
                     return;
@@ -309,7 +294,7 @@ function renderizarContenidoEstadisticasApp() {
                                     <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
                                 </div>
                                 <strong>${pct}%</strong>
-                            ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros</span>'}
+                            ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
                         </td>
                     </tr>
                 `;
@@ -482,7 +467,7 @@ function procesarCSVTemporada() {
                     (a.apelidos || "").trim().toUpperCase() === apelidos
                 );
 
-                if (!alumnoGeneral) {
+                if (_, !alumnoGeneral) {
                     window.db.Alumnos.push({
                         nome: nomePila, apelidos: apelidos, tlf: telefonoAlumno,
                         act: actividadActual, estado: "Admitido", status: "Admitido", asistencias: {}
