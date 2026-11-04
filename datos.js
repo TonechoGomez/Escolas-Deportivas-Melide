@@ -79,29 +79,8 @@ function mostrarDatos() {
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (PRECISO)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA ( LECTURA DIRECTA DE CHECKS )
 // ==========================================
-
-function esDiaDeClaseValido(fechaStr, textoDiaActividad) {
-    if (!fechaStr || !textoDiaActividad) return false;
-    if (fechaStr < "2026-11-01") return false;
-
-    const d = new Date(fechaStr);
-    if (isNaN(d.getTime())) return false;
-    const diaSemanaNum = d.getDay(); // 0: Domingo, 1: Luns...
-
-    const txt = textoDiaActividad.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-    if (txt.includes("LUNS") && diaSemanaNum === 1) return true;
-    if (txt.includes("MARTES") && diaSemanaNum === 2) return true;
-    if (txt.includes("MERCORES") && diaSemanaNum === 3) return true;
-    if (txt.includes("XOVES") && diaSemanaNum === 4) return true;
-    if (txt.includes("VENRES") && diaSemanaNum === 5) return true;
-    if (txt.includes("SABADO") && diaSemanaNum === 6) return true;
-    if (txt.includes("DOMINGO") && diaSemanaNum === 0) return true;
-
-    return false;
-}
 
 function abrirEstadisticasAsistencia() {
     const container = document.getElementById('data-container');
@@ -144,29 +123,30 @@ function renderizarContenidoEstadisticasApp() {
 
     const actividades = window.db.Actividades || [];
     
-    // Alumnos activos con actividade válida asignada
+    // Alumnos que teñen unha actividade válida asignada
     const alumnos = (window.db.Alumnos || []).filter(al => {
         if (!al.act || al.act.trim() === "") return false;
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    let totalRexistros = 0;
-    let totalPresentes = 0;
+    let totalChecksRegistrados = 0;
+    let totalChecksPositivos = 0;
 
+    // Recorremos exclusivamente os alumnos que teñen rexistros de asistencia gardados dende Novembro
     alumnos.forEach(al => {
-        const actAsociada = actividades.find(a => (a.nome || "").trim().toUpperCase() === (al.act || "").trim().toUpperCase());
-        const diasClaseAct = actAsociada ? actAsociada.dia : "";
-
         const asist = al.asistencias || {};
-        Object.entries(asist).forEach(([fechaControl, valor]) => {
-            if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, diasClaseAct)) {
-                totalRexistros++;
-                if (valor === true) totalPresentes++; // CONTROLO ESTRICTO DE MARCADOS EN VERDE
+        Object.entries(asist).forEach(([fecha, valor]) => {
+            // Se a data é dende o 1 de novembro e o rexistro non está baleiro
+            if (fecha >= "2026-11-01") {
+                totalChecksRegistrados++; // Cada clave de data marcada conta como un rexistro de control realizado
+                if (valor === true) {
+                    totalChecksPositivos++; // Alumno presente (marcado en verde/true)
+                }
             }
         });
     });
 
-    const porcGlobal = totalRexistros > 0 ? Math.round((totalPresentes / totalRexistros) * 100) : 0;
+    const porcGlobal = totalChecksRegistrados > 0 ? Math.round((totalChecksPositivos / totalChecksRegistrados) * 100) : 0;
 
     let html = "";
 
@@ -175,15 +155,15 @@ function renderizarContenidoEstadisticasApp() {
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px;">
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #005696;">
                     <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">MEDIA GLOBAL (Dende Nov)</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalRexistros > 0 ? porcGlobal + '%' : 'Sen rexistros'}</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalChecksRegistrados > 0 ? porcGlobal + '%' : 'Sen rexistros'}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #2563eb;">
-                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">TOTAL CLASES VÁLIDAS</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalRexistros}</span>
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">TOTAL CONTROLS MARCADOS</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalChecksRegistrados}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #16a34a;">
-                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">PRESENZAS CONFIRMADAS</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalPresentes}</span>
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">PRESENZAS CONFIRMADAS (TRUE)</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalChecksPositivos}</span>
                 </div>
             </div>
         `;
@@ -193,9 +173,9 @@ function renderizarContenidoEstadisticasApp() {
                 <table style="width:100%; border-collapse:collapse; font-size:0.9rem; text-align:left;">
                     <thead>
                         <tr style="background:#f1f5f9; color:#475569;">
-                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade (Días)</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumnos Activos</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
+                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumnos con Rexistros</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Real</th>' : ''}
                             ${opcion === 'monitor' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Monitor/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividades</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Media</th>' : ''}
-                            ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade(s) Asignada(s)</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
+                            ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade Asignada</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
@@ -204,29 +184,30 @@ function renderizarContenidoEstadisticasApp() {
         if (opcion === 'actividad') {
             actividades.forEach(act => {
                 const alAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === (act.nome || "").trim().toUpperCase());
-                let ses = 0, pres = 0;
+                let totalAct = 0, presAct = 0;
 
                 alAct.forEach(a => {
                     const asist = a.asistencias || {};
-                    Object.entries(asist).forEach(([fechaControl, valor]) => {
-                        if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, act.dia)) {
-                            ses++;
-                            if (valor === true) pres++;
+                    Object.entries(asist).forEach(([fecha, valor]) => {
+                        if (fecha >= "2026-11-01") {
+                            totalAct++;
+                            if (valor === true) presAct++;
                         }
                     });
                 });
-                const pct = ses > 0 ? Math.round((pres / ses) * 100) : null;
+
+                const pct = totalAct > 0 ? Math.round((presAct / totalAct) * 100) : null;
 
                 html += `
                     <tr style="border-bottom:1px solid #e2e8f0;">
-                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${act.nome} <span style="font-weight:normal; font-size:0.75rem; color:#64748b;">(${act.dia || 'Sen día'})</span></td>
-                        <td style="padding:12px; color:#334155;">${alAct.length} alumnos</td>
+                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${act.nome}</td>
+                        <td style="padding:12px; color:#334155;">${alAct.length} alumnos (${totalAct > 0 ? totalAct + ' controis' : 'Sen datos'})</td>
                         <td style="padding:12px; color:#334155;">
                             ${pct !== null ? `
                                 <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
                                     <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
                                 </div>
-                                <strong>${pct}%</strong> (${pres}/${ses})
+                                <strong>${pct}%</strong> (${presAct}/${totalAct})
                             ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
                         </td>
                     </tr>
@@ -240,20 +221,18 @@ function renderizarContenidoEstadisticasApp() {
                 const nomesActs = actsMon.map(a => a.nome);
                 const alMon = alumnos.filter(a => nomesActs.includes(a.act));
 
-                let ses = 0, pres = 0;
+                let totalMon = 0, presMon = 0;
                 alMon.forEach(a => {
-                    const actAsociada = actsMon.find(am => am.nome === a.act);
-                    const diasAct = actAsociada ? actAsociada.dia : "";
-
                     const asist = a.asistencias || {};
-                    Object.entries(asist).forEach(([fechaControl, valor]) => {
-                        if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, diasAct)) {
-                            ses++;
-                            if (valor === true) pres++;
+                    Object.entries(asist).forEach(([fecha, valor]) => {
+                        if (fecha >= "2026-11-01") {
+                            totalMon++;
+                            if (valor === true) presMon++;
                         }
                     });
                 });
-                const pct = ses > 0 ? Math.round((pres / ses) * 100) : null;
+
+                const pct = totalMon > 0 ? Math.round((presMon / totalMon) * 100) : null;
 
                 html += `
                     <tr style="border-bottom:1px solid #e2e8f0;">
@@ -271,39 +250,40 @@ function renderizarContenidoEstadisticasApp() {
                 `;
             });
         } else if (opcion === 'alumno') {
-            alumnos.forEach(al => {
-                // Comprobamos se o alumno está rexistrado nunha ou varias actividades
-                const actsAlumno = actividades.filter(a => (a.nome || "").trim().toUpperCase() === (al.act || "").trim().toUpperCase());
-                
-                let ses = 0, pres = 0;
+            // Mostramos exclusivamente alumnos que teñan algún rexistro de asistencia marcado dende novembro
+            const alumnosConRexistros = alumnos.filter(al => {
                 const asist = al.asistencias || {};
-                Object.entries(asist).forEach(([fechaControl, valor]) => {
-                    if (fechaControl >= "2026-11-01") {
-                        // Comprobamos calquera das súas actividades válidas
-                        const coincideAlgunha = actsAlumno.some(act => esDiaDeClaseValido(fechaControl, act.dia));
-                        if (coincideAlgunha) {
-                            ses++;
-                            if (valor === true) pres++;
-                        }
-                    }
-                });
-                const pct = ses > 0 ? Math.round((pres / ses) * 100) : null;
+                return Object.keys(asist).some(fecha => fecha >= "2026-11-01");
+            });
 
-                html += `
-                    <tr style="border-bottom:1px solid #e2e8f0;">
-                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${al.nome} ${al.apelidos || ''}</td>
-                        <td style="padding:12px; color:#334155;">${al.act || 'Sen actividade'}</td>
-                        <td style="padding:12px; color:#334155;">
-                            ${pct !== null ? `
+            if (alumnosConRexistros.length === 0) {
+                html += `<tr><td colspan="3" style="padding:15px; text-align:center; color:#64748b;">Non hai alumnos con asistencias marcadas dende novembro.</td></tr>`;
+            } else {
+                alumnosConRexistros.forEach(al => {
+                    let totalAl = 0, presAl = 0;
+                    const asist = al.asistencias || {};
+                    Object.entries(asist).forEach(([fecha, valor]) => {
+                        if (fecha >= "2026-11-01") {
+                            totalAl++;
+                            if (valor === true) presAl++;
+                        }
+                    });
+                    const pct = totalAl > 0 ? Math.round((presAl / totalAl) * 100) : 0;
+
+                    html += `
+                        <tr style="border-bottom:1px solid #e2e8f0;">
+                            <td style="padding:12px; font-weight:bold; color:#0f172a;">${al.nome} ${al.apelidos || ''}</td>
+                            <td style="padding:12px; color:#334155;">${al.act || 'Sen actividade'}</td>
+                            <td style="padding:12px; color:#334155;">
                                 <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
                                     <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
                                 </div>
-                                <strong>${pct}%</strong> (${pres}/${ses})
-                            ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
-                        </td>
-                    </tr>
-                `;
-            });
+                                <strong>${pct}%</strong> (${presAl}/${totalAl})
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
         }
 
         html += `</tbody></table></div>`;
@@ -441,7 +421,7 @@ function procesarCSVTemporada() {
                     alumnoGeneral.act = actividadActual; alumnoGeneral.estado = "Admitido";
                     alumnoGeneral.status = "Admitido";
                     if (alumnoGeneral.baja) delete alumnoGeneral.baja;
-                    if (telefonoAlgorithm && !alumnoGeneral.tlf) alumnoGeneral.tlf = telefonoAlumno;
+                    if (telefonoAlumno && !alumnoGeneral.tlf) alumnoGeneral.tlf = telefonoAlumno;
                 }
                 contadorAlumnos++;
             }
