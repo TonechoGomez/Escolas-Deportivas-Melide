@@ -79,7 +79,7 @@ function mostrarDatos() {
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (EXACTO)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (BLINDADO)
 // ==========================================
 
 function abrirEstadisticasAsistencia() {
@@ -123,13 +123,13 @@ function renderizarContenidoEstadisticasApp() {
 
     const actividades = window.db.Actividades || [];
     
-    // Alumnos activos con actividade válida asignada
+    // Alumnos activos que teñen unha actividade que realmente existe na base de datos
     const alumnos = (window.db.Alumnos || []).filter(al => {
         if (!al.act || al.act.trim() === "") return false;
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    // 1. OBTENER FECHAS REAIS DE CLASE (Dende o 1 de novembro e onde hai algún check marcado)
+    // RECOLLIDA ESTRICTA DE FECHAS REAIS DE CLASE (Dende o 1 de novembro, só se o check é true explícitamente)
     const fechasClasesPorActividad = {};
     actividades.forEach(act => {
         const nombreAct = act.nome.trim().toUpperCase();
@@ -157,7 +157,7 @@ function renderizarContenidoEstadisticasApp() {
         actividades.forEach(act => {
             const nombreAct = act.nome.trim().toUpperCase();
             const fechas = fechasClasesPorActividad[nombreAct] || [];
-            if (fechas.length === 0) return; // Ignoramos actividades sen rexistros
+            if (fechas.length === 0) return;
 
             totalHorasClaseCentro += fechas.length;
             const alumnosAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
@@ -212,11 +212,11 @@ function renderizarContenidoEstadisticasApp() {
         if (opcion === 'actividad') {
             actividades.forEach(act => {
                 const nombreAct = act.nome.trim().toUpperCase();
+                // Cruce estricto: alumnos cuxa actividade coincide EXACTAMENTE co nome
                 const alAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
                 const fechas = fechasClasesPorActividad[nombreAct] || [];
                 const horasClase = fechas.length;
 
-                // Se non hai horas de clase rexistradas, mostramos sen rexistros
                 if (horasClase === 0) {
                     html += `
                         <tr style="border-bottom:1px solid #e2e8f0;">
@@ -264,7 +264,6 @@ function renderizarContenidoEstadisticasApp() {
                 let totalHorasMon = 0;
                 let presenciasMon = 0;
                 let posiblesMon = 0;
-                let tenRexistros = false;
 
                 actsMon.forEach(act => {
                     const nombreAct = act.nome.trim().toUpperCase();
@@ -272,7 +271,6 @@ function renderizarContenidoEstadisticasApp() {
                     const fechas = fechasClasesPorActividad[nombreAct] || [];
                     
                     if (fechas.length > 0) {
-                        tenRexistros = true;
                         totalHorasMon += fechas.length;
                         posiblesMon += fechas.length * alAct.length;
 
