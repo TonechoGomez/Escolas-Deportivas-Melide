@@ -79,19 +79,16 @@ function mostrarDatos() {
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (FILTRADO COMPLETO)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (PRECISO)
 // ==========================================
 
-// Función para comprobar se unha data coincide co día da semana da actividade
 function esDiaDeClaseValido(fechaStr, textoDiaActividad) {
     if (!fechaStr || !textoDiaActividad) return false;
-    
-    // Límite mínimo fixo de inicio: 1 de novembro de 2026
     if (fechaStr < "2026-11-01") return false;
 
     const d = new Date(fechaStr);
     if (isNaN(d.getTime())) return false;
-    const diaSemanaNum = d.getDay(); // 0: Domingo, 1: Luns, 2: Martes, 3: Mércores, 4: Xoves, 5: Venres, 6: Sábado
+    const diaSemanaNum = d.getDay(); // 0: Domingo, 1: Luns...
 
     const txt = textoDiaActividad.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
@@ -147,7 +144,7 @@ function renderizarContenidoEstadisticasApp() {
 
     const actividades = window.db.Actividades || [];
     
-    // FILTRADO EXCLUSIVO: Só computamos alumnos que teñan unha actividade asignada e activa
+    // Alumnos activos con actividade válida asignada
     const alumnos = (window.db.Alumnos || []).filter(al => {
         if (!al.act || al.act.trim() === "") return false;
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
@@ -164,7 +161,7 @@ function renderizarContenidoEstadisticasApp() {
         Object.entries(asist).forEach(([fechaControl, valor]) => {
             if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, diasClaseAct)) {
                 totalRexistros++;
-                if (valor === true) totalPresentes++;
+                if (valor === true) totalPresentes++; // CONTROLO ESTRICTO DE MARCADOS EN VERDE
             }
         });
     });
@@ -198,7 +195,7 @@ function renderizarContenidoEstadisticasApp() {
                         <tr style="background:#f1f5f9; color:#475569;">
                             ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade (Días)</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumnos Activos</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
                             ${opcion === 'monitor' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Monitor/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividades</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Media</th>' : ''}
-                            ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
+                            ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade(s) Asignada(s)</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
@@ -229,7 +226,7 @@ function renderizarContenidoEstadisticasApp() {
                                 <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
                                     <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
                                 </div>
-                                <strong>${pct}%</strong>
+                                <strong>${pct}%</strong> (${pres}/${ses})
                             ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
                         </td>
                     </tr>
@@ -275,15 +272,19 @@ function renderizarContenidoEstadisticasApp() {
             });
         } else if (opcion === 'alumno') {
             alumnos.forEach(al => {
-                const actAsociada = actividades.find(a => (a.nome || "").trim().toUpperCase() === (al.act || "").trim().toUpperCase());
-                const diasAct = actAsociada ? actAsociada.dia : "";
-
+                // Comprobamos se o alumno está rexistrado nunha ou varias actividades
+                const actsAlumno = actividades.filter(a => (a.nome || "").trim().toUpperCase() === (al.act || "").trim().toUpperCase());
+                
                 let ses = 0, pres = 0;
                 const asist = al.asistencias || {};
                 Object.entries(asist).forEach(([fechaControl, valor]) => {
-                    if (fechaControl >= "2026-11-01" && esDiaDeClaseValido(fechaControl, diasAct)) {
-                        ses++;
-                        if (valor === true) pres++;
+                    if (fechaControl >= "2026-11-01") {
+                        // Comprobamos calquera das súas actividades válidas
+                        const coincideAlgunha = actsAlumno.some(act => esDiaDeClaseValido(fechaControl, act.dia));
+                        if (coincideAlgunha) {
+                            ses++;
+                            if (valor === true) pres++;
+                        }
                     }
                 });
                 const pct = ses > 0 ? Math.round((pres / ses) * 100) : null;
@@ -297,7 +298,7 @@ function renderizarContenidoEstadisticasApp() {
                                 <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
                                     <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
                                 </div>
-                                <strong>${pct}%</strong>
+                                <strong>${pct}%</strong> (${pres}/${ses})
                             ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
                         </td>
                     </tr>
@@ -440,7 +441,7 @@ function procesarCSVTemporada() {
                     alumnoGeneral.act = actividadActual; alumnoGeneral.estado = "Admitido";
                     alumnoGeneral.status = "Admitido";
                     if (alumnoGeneral.baja) delete alumnoGeneral.baja;
-                    if (telefonoAlumno && !alumnoGeneral.tlf) alumnoGeneral.tlf = telefonoAlumno;
+                    if (telefonoAlgorithm && !alumnoGeneral.tlf) alumnoGeneral.tlf = telefonoAlumno;
                 }
                 contadorAlumnos++;
             }
