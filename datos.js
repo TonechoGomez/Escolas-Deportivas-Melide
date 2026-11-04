@@ -79,7 +79,7 @@ function mostrarDatos() {
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA ( LECTURA DIRECTA DE CHECKS )
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (MATEMÁTICA CORREXA)
 // ==========================================
 
 function abrirEstadisticasAsistencia() {
@@ -123,30 +123,28 @@ function renderizarContenidoEstadisticasApp() {
 
     const actividades = window.db.Actividades || [];
     
-    // Alumnos que teñen unha actividade válida asignada
+    // Alumnos activos con actividade válida asignada
     const alumnos = (window.db.Alumnos || []).filter(al => {
         if (!al.act || al.act.trim() === "") return false;
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    let totalChecksRegistrados = 0;
-    let totalChecksPositivos = 0;
+    let totalPresenciasGlobal = 2026; // control base
+    let totalEsperadoGlobal = 0;
+    let contadorChecksGlobal = 0;
+    let contadorVerdaderosGlobal = 0;
 
-    // Recorremos exclusivamente os alumnos que teñen rexistros de asistencia gardados dende Novembro
     alumnos.forEach(al => {
         const asist = al.asistencias || {};
         Object.entries(asist).forEach(([fecha, valor]) => {
-            // Se a data é dende o 1 de novembro e o rexistro non está baleiro
             if (fecha >= "2026-11-01") {
-                totalChecksRegistrados++; // Cada clave de data marcada conta como un rexistro de control realizado
-                if (valor === true) {
-                    totalChecksPositivos++; // Alumno presente (marcado en verde/true)
-                }
+                contadorChecksGlobal++;
+                if (valor === true) contadorVerdaderosGlobal++;
             }
         });
     });
 
-    const porcGlobal = totalChecksRegistrados > 0 ? Math.round((totalChecksPositivos / totalChecksRegistrados) * 100) : 0;
+    const porcGlobal = contadorChecksGlobal > 0 ? Math.round((contadorVerdaderosGlobal / contadorChecksGlobal) * 100) : 0;
 
     let html = "";
 
@@ -155,15 +153,15 @@ function renderizarContenidoEstadisticasApp() {
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px;">
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #005696;">
                     <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">MEDIA GLOBAL (Dende Nov)</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalChecksRegistrados > 0 ? porcGlobal + '%' : 'Sen rexistros'}</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${contadorChecksGlobal > 0 ? porcGlobal + '%' : 'Sen rexistros'}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #2563eb;">
-                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">TOTAL CONTROLS MARCADOS</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalChecksRegistrados}</span>
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">TOTAL MARCAS REXISTRADAS</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${contadorChecksGlobal}</span>
                 </div>
                 <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #16a34a;">
                     <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">PRESENZAS CONFIRMADAS (TRUE)</span>
-                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalChecksPositivos}</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${contadorVerdaderosGlobal}</span>
                 </div>
             </div>
         `;
@@ -173,7 +171,7 @@ function renderizarContenidoEstadisticasApp() {
                 <table style="width:100%; border-collapse:collapse; font-size:0.9rem; text-align:left;">
                     <thead>
                         <tr style="background:#f1f5f9; color:#475569;">
-                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumnos con Rexistros</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Real</th>' : ''}
+                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumnos Matriculados</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Real</th>' : ''}
                             ${opcion === 'monitor' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Monitor/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividades</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Media</th>' : ''}
                             ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade Asignada</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
                         </tr>
@@ -184,30 +182,34 @@ function renderizarContenidoEstadisticasApp() {
         if (opcion === 'actividad') {
             actividades.forEach(act => {
                 const alAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === (act.nome || "").trim().toUpperCase());
-                let totalAct = 0, presAct = 0;
+                
+                // Recorremos exclusivamente os alumnos desta actividade e os seus checks dende novembro
+                let totalChecksAct = 0;
+                let verdaderosAct = 0;
 
                 alAct.forEach(a => {
                     const asist = a.asistencias || {};
                     Object.entries(asist).forEach(([fecha, valor]) => {
                         if (fecha >= "2026-11-01") {
-                            totalAct++;
-                            if (valor === true) presAct++;
+                            totalChecksAct++;
+                            if (valor === true) verdaderosAct++;
                         }
                     });
                 });
 
-                const pct = totalAct > 0 ? Math.round((presAct / totalAct) * 100) : null;
+                // Se non hai ningún check marcado nesta actividade, non inventamos nin pomos 100%
+                const pct = totalChecksAct > 0 ? Math.round((verdaderosAct / totalChecksAct) * 100) : null;
 
                 html += `
                     <tr style="border-bottom:1px solid #e2e8f0;">
                         <td style="padding:12px; font-weight:bold; color:#0f172a;">${act.nome}</td>
-                        <td style="padding:12px; color:#334155;">${alAct.length} alumnos (${totalAct > 0 ? totalAct + ' controis' : 'Sen datos'})</td>
+                        <td style="padding:12px; color:#334155;">${alAct.length} alumnos</td>
                         <td style="padding:12px; color:#334155;">
                             ${pct !== null ? `
                                 <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
                                     <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
                                 </div>
-                                <strong>${pct}%</strong> (${presAct}/${totalAct})
+                                <strong>${pct}%</strong> (${verdaderosAct} asistencias de ${totalChecksAct} marcas)
                             ` : '<span style="color:#94a3b8; font-style:italic;">Sen rexistros dende Nov</span>'}
                         </td>
                     </tr>
@@ -221,18 +223,18 @@ function renderizarContenidoEstadisticasApp() {
                 const nomesActs = actsMon.map(a => a.nome);
                 const alMon = alumnos.filter(a => nomesActs.includes(a.act));
 
-                let totalMon = 0, presMon = 0;
+                let totalMon = 0, verdaderosMon = 0;
                 alMon.forEach(a => {
                     const asist = a.asistencias || {};
                     Object.entries(asist).forEach(([fecha, valor]) => {
                         if (fecha >= "2026-11-01") {
                             totalMon++;
-                            if (valor === true) presMon++;
+                            if (valor === true) verdaderosMon++;
                         }
                     });
                 });
 
-                const pct = totalMon > 0 ? Math.round((presMon / totalMon) * 100) : null;
+                const pct = totalMon > 0 ? Math.round((verdaderosMon / totalMon) * 100) : null;
 
                 html += `
                     <tr style="border-bottom:1px solid #e2e8f0;">
@@ -250,7 +252,6 @@ function renderizarContenidoEstadisticasApp() {
                 `;
             });
         } else if (opcion === 'alumno') {
-            // Mostramos exclusivamente alumnos que teñan algún rexistro de asistencia marcado dende novembro
             const alumnosConRexistros = alumnos.filter(al => {
                 const asist = al.asistencias || {};
                 return Object.keys(asist).some(fecha => fecha >= "2026-11-01");
