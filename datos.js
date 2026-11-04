@@ -17,7 +17,7 @@ function saveDataLocal() {
 
 // Envía manualmente los datos a la nube
 async function guardarESincronizarManual() {
-    saveDataLocal(); // Aseguramos guardado local primeiro
+    saveDataLocal(); // Aseguramos guardado local primero
     const btn = document.getElementById('btn-sync-manual');
     if (btn) {
         btn.disabled = true;
@@ -67,7 +67,7 @@ function mostrarDatos() {
             
             <button onclick="abrirEstadisticasAsistencia()" style="width:100%; padding:15px; background:#0284c7; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📊 VER ESTADÍSTICAS DE ASISTENCIA</button>
             <button onclick="guardarESincronizarManual()" style="width:100%; padding:15px; background:#16a34a; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">💾 FORZAR SINCRONIZACIÓN COA NUBE</button>
-            <button onclick="limpiarHistorialAsistenciasFantasma()" style="width:100%; padding:15px; background:#d97706; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">🧹 LIMPIAR ASISTENCIAS ANTIGUAS/FANTASMA</button>
+            <button onclick="limpiarTotalAsistenciasFantasmas()" style="width:100%; padding:15px; background:#d97706; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">🧹 PURGA TOTAL DE ASISTENCIAS</button>
             <button onclick="exportarDatosJSON()" style="width:100%; padding:15px; background:#005696; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📥 DESCARGAR COPIA (JSON)</button>
             
             <div style="margin:15px 0; border-top:1px solid #eee; padding-top:15px;">
@@ -79,27 +79,22 @@ function mostrarDatos() {
     ` + mostrarSeccionNuevaTemporada();
 }
 
-// Función para limpar rexistros de asistencia que non sexan de hoxe en diante se hai erros
-function limpiarHistorialAsistenciasFantasma() {
-    if (confirm("🧹 Desexas limpar todos os rexistros de asistencia anteriores para arrancar coas estadísticas limpas?")) {
+// Función de purga profunda para eliminar calquera rexistro corrupto ou residual
+function limpiarTotalAsistenciasFantasmas() {
+    if (confirm("⚠️ ATENCIÓN: Isto eliminará por completo calquera rexistro de asistencia anterior en todos os alumnos para partir dunha base 100% limpa. Desexas continuar?")) {
         const alumnos = window.db.Alumnos || [];
         alumnos.forEach(al => {
-            if (al.asistencias) {
-                // Borramos calquera rexistro anterior
-                Object.keys(al.asistencias).forEach(fecha => {
-                    delete al.asistencias[fecha];
-                });
-            }
+            al.asistencias = {}; // Borrado total e limpo do obxecto de asistencias
         });
         saveDataLocal();
         guardarESincronizarManual();
-        alert("✨ Historial de asistencias limpo correctamente. Agora podes marcar de novo só o que precises.");
+        alert("✨ Purga completada con éxito. Todos os contadores están a cero.");
         location.reload();
     }
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (PURIFICADO)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (EXTREMADAMENTE RIGUROSO)
 // ==========================================
 
 function abrirEstadisticasAsistencia() {
@@ -149,7 +144,7 @@ function renderizarContenidoEstadisticasApp() {
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    // RECOLLIDA DE FECHAS CLAVE: Só se o alumno ten a actividade activa NESTES MOMENTOS e o check é true
+    // MAPEO ESTRICTO: Contamos unicamente fechas onde o alumno ten a actividade activa NESTES MOMENTOS e o valor é true absoluto
     const fechasClasesPorActividad = {};
     actividades.forEach(act => {
         const nombreAct = act.nome.trim().toUpperCase();
