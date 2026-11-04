@@ -17,7 +17,7 @@ function saveDataLocal() {
 
 // Envía manualmente los datos a la nube
 async function guardarESincronizarManual() {
-    saveDataLocal(); // Aseguramos guardado local primero
+    saveDataLocal(); // Aseguramos guardado local primeiro
     const btn = document.getElementById('btn-sync-manual');
     if (btn) {
         btn.disabled = true;
@@ -67,6 +67,7 @@ function mostrarDatos() {
             
             <button onclick="abrirEstadisticasAsistencia()" style="width:100%; padding:15px; background:#0284c7; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📊 VER ESTADÍSTICAS DE ASISTENCIA</button>
             <button onclick="guardarESincronizarManual()" style="width:100%; padding:15px; background:#16a34a; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">💾 FORZAR SINCRONIZACIÓN COA NUBE</button>
+            <button onclick="limpiarHistorialAsistenciasFantasma()" style="width:100%; padding:15px; background:#d97706; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">🧹 LIMPIAR ASISTENCIAS ANTIGUAS/FANTASMA</button>
             <button onclick="exportarDatosJSON()" style="width:100%; padding:15px; background:#005696; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📥 DESCARGAR COPIA (JSON)</button>
             
             <div style="margin:15px 0; border-top:1px solid #eee; padding-top:15px;">
@@ -78,8 +79,27 @@ function mostrarDatos() {
     ` + mostrarSeccionNuevaTemporada();
 }
 
+// Función para limpar rexistros de asistencia que non sexan de hoxe en diante se hai erros
+function limpiarHistorialAsistenciasFantasma() {
+    if (confirm("🧹 Desexas limpar todos os rexistros de asistencia anteriores para arrancar coas estadísticas limpas?")) {
+        const alumnos = window.db.Alumnos || [];
+        alumnos.forEach(al => {
+            if (al.asistencias) {
+                // Borramos calquera rexistro anterior
+                Object.keys(al.asistencias).forEach(fecha => {
+                    delete al.asistencias[fecha];
+                });
+            }
+        });
+        saveDataLocal();
+        guardarESincronizarManual();
+        alert("✨ Historial de asistencias limpo correctamente. Agora podes marcar de novo só o que precises.");
+        location.reload();
+    }
+}
+
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (BLINDADO)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (PURIFICADO)
 // ==========================================
 
 function abrirEstadisticasAsistencia() {
@@ -123,13 +143,13 @@ function renderizarContenidoEstadisticasApp() {
 
     const actividades = window.db.Actividades || [];
     
-    // Alumnos activos que teñen unha actividade que realmente existe na base de datos
+    // Alumnos activos con actividade válida asignada
     const alumnos = (window.db.Alumnos || []).filter(al => {
         if (!al.act || al.act.trim() === "") return false;
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    // RECOLLIDA ESTRICTA DE FECHAS REAIS DE CLASE (Dende o 1 de novembro, só se o check é true explícitamente)
+    // RECOLLIDA DE FECHAS CLAVE: Só se o alumno ten a actividade activa NESTES MOMENTOS e o check é true
     const fechasClasesPorActividad = {};
     actividades.forEach(act => {
         const nombreAct = act.nome.trim().toUpperCase();
@@ -212,7 +232,6 @@ function renderizarContenidoEstadisticasApp() {
         if (opcion === 'actividad') {
             actividades.forEach(act => {
                 const nombreAct = act.nome.trim().toUpperCase();
-                // Cruce estricto: alumnos cuxa actividade coincide EXACTAMENTE co nome
                 const alAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
                 const fechas = fechasClasesPorActividad[nombreAct] || [];
                 const horasClase = fechas.length;
@@ -404,10 +423,10 @@ function procesarCSVTemporada() {
     if (!input || !input.files[0]) return alert("Por favor, selecciona primeiro un arquivo CSV.");
     if (!confirm("ATENCIÓN: Isto actualizará as actividades dos alumnos segundo o arquivo CSV. Desexas continuar?")) return;
 
-    const reader = new FileReader();
+    let reader = new FileReader();
     reader.onload = function(e) {
-        const contenido = e.target.result;
-        const lineas = contenido.split(/\r\n|\n/);
+        let contenido = e.target.result;
+        let lineas = contenido.split(/\r\n|\n/);
 
         if (!window.db.Alumnos) window.db.Alumnos = [];
         if (!window.db.Actividades) window.db.Actividades = [];
