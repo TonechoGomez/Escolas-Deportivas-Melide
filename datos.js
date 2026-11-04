@@ -79,7 +79,7 @@ function mostrarDatos() {
 }
 
 // ==========================================
-// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (RESTRUCTURADO)
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA (ESTRICTO)
 // ==========================================
 
 function abrirEstadisticasAsistencia() {
@@ -123,24 +123,24 @@ function renderizarContenidoEstadisticasApp() {
 
     const actividades = window.db.Actividades || [];
     
-    // Alumnos activos con actividad asignada
+    // Alumnos activos con actividade válida asignada
     const alumnos = (window.db.Alumnos || []).filter(al => {
         if (!al.act || al.act.trim() === "") return false;
         return actividades.some(act => (act.nome || "").trim().toUpperCase() === al.act.trim().toUpperCase());
     });
 
-    // 1. OBTENER FECHAS DE CLASE REGISTRADAS (HORAS TOTALES)
+    // RECOLLIDA DE FECHAS CLAVE DE CLASE: Únicamente donde hai rexistros reais gardados dende o 1 de novembro
     const fechasClasesPorActividad = {};
     actividades.forEach(act => {
         const nombreAct = act.nome.trim().toUpperCase();
         const fechasSet = new Set();
         
-        // Alumnos de esta actividad
         const alumnosAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
         alumnosAct.forEach(a => {
             const asist = a.asistencias || {};
-            Object.keys(asist).forEach(fecha => {
-                if (fecha >= "2026-11-01") {
+            Object.entries(asist).forEach(([fecha, valor]) => {
+                // EXIXIMOS QUE A DATA SEAN DE NOVEMBRO EN ADIANTE E QUE O VALOR SEXA EXPLÍCITAMENTE UN BOOLEANO VÁLIDO
+                if (fecha >= "2026-11-01" && (valor === true || valor === false)) {
                     fechasSet.add(fecha);
                 }
             });
@@ -158,7 +158,7 @@ function renderizarContenidoEstadisticasApp() {
         actividades.forEach(act => {
             const nombreAct = act.nome.trim().toUpperCase();
             const fechas = fechasClasesPorActividad[nombreAct] || [];
-            totalHorasClaseCentro += fechas.length; // Horas de clase impartidas
+            totalHorasClaseCentro += fechas.length;
 
             const alumnosAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === nombreAct);
             
@@ -167,7 +167,7 @@ function renderizarContenidoEstadisticasApp() {
                 fechas.forEach(fecha => {
                     if (asist[fecha] === true) {
                         totalAsistenciasCentro++;
-                    } else {
+                    } else if (asist[fecha] === false) {
                         totalAusenciasCentro++;
                     }
                 });
@@ -219,14 +219,18 @@ function renderizarContenidoEstadisticasApp() {
                 const horasClase = fechas.length;
 
                 let presencias = 0;
+                let totalPosibles = 0;
+
                 alAct.forEach(al => {
                     const asist = al.asistencias || {};
                     fechas.forEach(f => {
-                        if (asist[f] === true) presencias++;
+                        if (asist[f] === true || asist[f] === false) {
+                            totalPosibles++;
+                            if (asist[f] === true) presencias++;
+                        }
                     });
                 });
 
-                const totalPosibles = horasClase * alAct.length;
                 const pct = totalPosibles > 0 ? Math.round((presencias / totalPosibles) * 100) : null;
 
                 html += `
@@ -265,8 +269,10 @@ function renderizarContenidoEstadisticasApp() {
                     alAct.forEach(al => {
                         const asist = al.asistencias || {};
                         fechas.forEach(f => {
-                            posiblesMon++;
-                            if (asist[f] === true) presenciasMon++;
+                            if (asist[f] === true || asist[f] === false) {
+                                posiblesMon++;
+                                if (asist[f] === true) presenciasMon++;
+                            }
                         });
                     });
                 });
@@ -289,36 +295,48 @@ function renderizarContenidoEstadisticasApp() {
                 `;
             });
         } else if (opcion === 'alumno') {
-            alumnos.forEach(al => {
-                const nombreAct = (al.act || "").trim().toUpperCase();
-                const actAsociada = actividades.find(a => (a.nome || "").trim().toUpperCase() === nombreAct);
-                const fechas = fechasClasesPorActividad[nombreAct] || [];
-
-                let presenciasAl = 0;
+            // Mostramos só alumnos que teñan asistencias reais rexistradas
+            const alumnosConRexistros = alumnos.filter(al => {
                 const asist = al.asistencias || {};
-
-                fechas.forEach(f => {
-                    if (asist[f] === true) presenciasAl++;
-                });
-
-                const totalClasesAct = fechas.length;
-                const pctAct = totalClasesAct > 0 ? Math.round((presenciasAl / totalClasesAct) * 100) : 0;
-
-                html += `
-                    <tr style="border-bottom:1px solid #e2e8f0;">
-                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${al.nome} ${al.apelidos || ''}</td>
-                        <td style="padding:12px; color:#334155;">${al.act || 'Sen actividade'}</td>
-                        <td style="padding:12px; color:#334155;">
-                            <div style="margin-bottom:4px;">
-                                <span>${al.act || 'Actividade'}: <strong>${pctAct}%</strong> (${presenciasAl}/${totalClasesAct})</span>
-                            </div>
-                            <div style="border-top:1px dashed #cbd5e1; padding-top:4px; font-weight:bold; color:#005696;">
-                                TOTAL GLOBAL: ${pctAct}%
-                            </div>
-                        </td>
-                    </tr>
-                `;
+                return Object.entries(asist).some(([f, v]) => f >= "2026-11-01" && (v === true || v === false));
             });
+
+            if (alumnosConRexistros.length === 0) {
+                html += `<tr><td colspan="3" style="padding:15px; text-align:center; color:#64748b;">Non hai alumnos con asistencias marcadas dende novembro.</td></tr>`;
+            } else {
+                alumnosConRexistros.forEach(al => {
+                    const nombreAct = (al.act || "").trim().toUpperCase();
+                    const fechas = fechasClasesPorActividad[nombreAct] || [];
+
+                    let presenciasAl = 0;
+                    let totalAl = 0;
+                    const asist = al.asistencias || {};
+
+                    fechas.forEach(f => {
+                        if (asist[f] === true || asist[f] === false) {
+                            totalAl++;
+                            if (asist[f] === true) presenciasAl++;
+                        }
+                    });
+
+                    const pctAct = totalAl > 0 ? Math.round((presenciasAl / totalAl) * 100) : 0;
+
+                    html += `
+                        <tr style="border-bottom:1px solid #e2e8f0;">
+                            <td style="padding:12px; font-weight:bold; color:#0f172a;">${al.nome} ${al.apelidos || ''}</td>
+                            <td style="padding:12px; color:#334155;">${al.act || 'Sen actividade'}</td>
+                            <td style="padding:12px; color:#334155;">
+                                <div style="margin-bottom:4px;">
+                                    <span>${al.act || 'Actividade'}: <strong>${pctAct}%</strong> (${presenciasAl}/${totalAl})</span>
+                                </div>
+                                <div style="border-top:1px dashed #cbd5e1; padding-top:4px; font-weight:bold; color:#005696;">
+                                    TOTAL GLOBAL: ${pctAct}%
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
         }
 
         html += `</tbody></table></div>`;
