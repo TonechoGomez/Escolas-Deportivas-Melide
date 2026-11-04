@@ -62,9 +62,10 @@ function mostrarDatos() {
 
     container.innerHTML = `
         <div style="background:white; color:black; padding:25px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.2); text-align:center;">
-            <h3 style="margin-top:0; color:#005696;">COPIAS DE SEGURIDADE</h3>
-            <p style="font-size:0.9rem; color:#64748b; margin-bottom:20px;">Podes descargar un arquivo de seguridade manual ou forzar a sincronización.</p>
+            <h3 style="margin-top:0; color:#005696;">PANEL DE XESTIÓN</h3>
+            <p style="font-size:0.9rem; color:#64748b; margin-bottom:20px;">Accede ás estadísticas ou xestiona as copias de seguridade.</p>
             
+            <button onclick="abrirEstadisticasAsistencia()" style="width:100%; padding:15px; background:#0284c7; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📊 VER ESTADÍSTICAS DE ASISTENCIA</button>
             <button onclick="guardarESincronizarManual()" style="width:100%; padding:15px; background:#16a34a; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">💾 FORZAR SINCRONIZACIÓN COA NUBE</button>
             <button onclick="exportarDatosJSON()" style="width:100%; padding:15px; background:#005696; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; margin-bottom:10px;">📥 DESCARGAR COPIA (JSON)</button>
             
@@ -76,6 +77,176 @@ function mostrarDatos() {
         </div>
     ` + mostrarSeccionNuevaTemporada();
 }
+
+// ==========================================
+// MÓDULO: ESTADÍSTICAS DE ASISTENCIA
+// ==========================================
+
+function abrirEstadisticasAsistencia() {
+    const container = document.getElementById('data-container');
+    const actions = document.getElementById('section-actions');
+    if (!container || !actions) return;
+
+    actions.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:15px;">
+            <h2 style="margin:0; color:white; font-size:1.4rem;">📊 ESTADÍSTICAS DE ASISTENCIA</h2>
+            <button onclick="mostrarDatos()" style="background:#475569; color:white; padding:10px 20px; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">⬅️ VOLVER</button>
+        </div>
+    `;
+
+    container.style.display = "block";
+    container.style.padding = "20px";
+    container.innerHTML = `
+        <div style="background:white; color:#333; padding:25px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.2); max-width:900px; margin:0 auto;">
+            
+            <div style="margin-bottom:20px;">
+                <label style="font-size:0.85rem; font-weight:bold; color:#64748b; display:block; margin-bottom:8px;">VER ESTADÍSTICAS POR:</label>
+                <select id="filtro-vista-app" onchange="renderizarContenidoEstadisticasApp()" style="width:100%; padding:12px; border-radius:10px; border:1px solid #cbd5e1; font-size:1rem; background:white; color:#334155; font-weight:bold; cursor:pointer;">
+                    <option value="totales">🌐 Estadísticas Totais do Centro</option>
+                    <option value="actividad">🏆 Por Actividade</option>
+                    <option value="monitor">👤 Por Monitor/a</option>
+                    <option value="alumno">👥 Por Alumno/a</option>
+                </select>
+            </div>
+
+            <div id="resultado-estadisticas-app"></div>
+        </div>
+    `;
+
+    renderizarContenidoEstadisticasApp();
+}
+
+function renderizarContenidoEstadisticasApp() {
+    const opcion = document.getElementById('filtro-vista-app').value;
+    const contenedorRes = document.getElementById('resultado-estadisticas-app');
+    if (!contenedorRes) return;
+
+    const alumnos = window.db.Alumnos || [];
+    const actividades = window.db.Actividades || [];
+
+    let totalSesiones = 0;
+    let totalAsistencias = 0;
+
+    alumnos.forEach(al => {
+        const asist = al.asistencias || {};
+        Object.values(asist).forEach(v => {
+            totalSesiones++;
+            if (v === true) totalAsistencias++;
+        });
+    });
+
+    const porcGlobal = totalSesiones > 0 ? Math.round((totalAsistencias / totalSesiones) * 100) : 0;
+
+    let html = "";
+
+    if (opcion === 'totales') {
+        html = `
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px;">
+                <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #005696;">
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">MEDIA GLOBAL</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${porcGlobal}%</span>
+                </div>
+                <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #2563eb;">
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">TOTAL CLASES REXISTRADAS</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalSesiones}</span>
+                </div>
+                <div style="background:#f1f5f9; padding:15px; border-radius:12px; border-left:5px solid #16a34a;">
+                    <span style="font-size:0.75rem; font-weight:bold; color:#64748b; display:block;">PRESENZAS CONFIRMADAS</span>
+                    <span style="font-size:1.8rem; font-weight:bold; color:#0f172a; margin-top:5px; display:block;">${totalAsistencias}</span>
+                </div>
+            </div>
+        `;
+    } else {
+        html = `
+            <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:12px;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.9rem; text-align:left;">
+                    <thead>
+                        <tr style="background:#f1f5f9; color:#475569;">
+                            ${opcion === 'actividad' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumnos</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
+                            ${opcion === 'monitor' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Monitor/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividades</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia Media</th>' : ''}
+                            ${opcion === 'alumno' ? '<th style="padding:12px; border-bottom:2px solid #e2e8f0;">Alumno/a</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">Actividade</th><th style="padding:12px; border-bottom:2px solid #e2e8f0;">% Asistencia</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        if (opcion === 'actividad') {
+            actividades.forEach(act => {
+                const alAct = alumnos.filter(a => (a.act || "").trim().toUpperCase() === (act.nome || "").trim().toUpperCase());
+                let ses = 0, pres = 0;
+                alAct.forEach(a => {
+                    Object.values(a.asistencias || {}).forEach(v => { ses++; if(v) pres++; });
+                });
+                const pct = ses > 0 ? Math.round((pres / ses) * 100) : 0;
+
+                html += `
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${act.nome}</td>
+                        <td style="padding:12px; color:#334155;">${alAct.length}</td>
+                        <td style="padding:12px; color:#334155;">
+                            <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
+                                <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
+                            </div>
+                            <strong>${pct}%</strong>
+                        </td>
+                    </tr>
+                `;
+            });
+        } else if (opcion === 'monitor') {
+            const monitoresUnicos = [...new Set(actividades.map(a => a.monitor).filter(Boolean))];
+            
+            monitoresUnicos.forEach(mon => {
+                const actsMon = actividades.filter(a => a.monitor === mon).map(a => a.nome);
+                const alMon = alumnos.filter(a => actsMon.includes(a.act));
+                let ses = 0, pres = 0;
+                alMon.forEach(a => {
+                    Object.values(a.asistencias || {}).forEach(v => { ses++; if(v) pres++; });
+                });
+                const pct = ses > 0 ? Math.round((pres / ses) * 100) : 0;
+
+                html += `
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${mon}</td>
+                        <td style="padding:12px; color:#334155;">${actsMon.join(', ') || 'Ningunha'}</td>
+                        <td style="padding:12px; color:#334155;">
+                            <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
+                                <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
+                            </div>
+                            <strong>${pct}%</strong>
+                        </td>
+                    </tr>
+                `;
+            });
+        } else if (opcion === 'alumno') {
+            alumnos.forEach(al => {
+                let ses = 0, pres = 0;
+                Object.values(al.asistencias || {}).forEach(v => { ses++; if(v) pres++; });
+                const pct = ses > 0 ? Math.round((pres / ses) * 100) : 0;
+
+                html += `
+                    <tr style="border-bottom:1px solid #e2e8f0;">
+                        <td style="padding:12px; font-weight:bold; color:#0f172a;">${al.nome} ${al.apelidos || ''}</td>
+                        <td style="padding:12px; color:#334155;">${al.act || 'Sen actividade'}</td>
+                        <td style="padding:12px; color:#334155;">
+                            <div style="background:#e2e8f0; height:10px; border-radius:5px; overflow:hidden; width:90px; display:inline-block; vertical-align:middle; margin-right:8px;">
+                                <div style="height:100%; width:${pct}%; background:#005696; border-radius:5px;"></div>
+                            </div>
+                            <strong>${pct}%</strong>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += `</tbody></table></div>`;
+    }
+
+    contenedorRes.innerHTML = html;
+}
+
+// ==========================================
+// UTILIDADES E COPIAS DE SEGURIDADE
+// ==========================================
 
 function exportarDatosJSON() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.db));
