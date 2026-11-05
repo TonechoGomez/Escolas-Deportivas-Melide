@@ -4,6 +4,7 @@
 
 window.mesFiltroActual = new Date().toISOString().substring(0, 7);
 
+// INICIALIZACIÓN ROBUSTA: Prioriza siempre localStorage para evitar perder datos
 window.db = JSON.parse(localStorage.getItem('melide_db')) || { 
     Monitores: [], Actividades: [], Aulas: [], Alumnos: [] 
 };
@@ -12,7 +13,11 @@ window.SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwm0XIygblMMbJiKoqS
 
 // Guarda en el navegador local (Rápido y seguro)
 function saveDataLocal() {
-    localStorage.setItem('melide_db', JSON.stringify(window.db));
+    try {
+        localStorage.setItem('melide_db', JSON.stringify(window.db));
+    } catch (e) {
+        console.error("Erro ao gardar en localStorage:", e);
+    }
 }
 
 // Envía manualmente los datos a la nube
@@ -467,7 +472,7 @@ function procesarCSVTemporada() {
                     (a.apelidos || "").trim().toUpperCase() === apelidos
                 );
 
-                if (_, !alumnoGeneral) {
+                if (!alumnoGeneral) {
                     window.db.Alumnos.push({
                         nome: nomePila, apelidos: apelidos, tlf: telefonoAlumno,
                         act: actividadActual, estado: "Admitido", status: "Admitido", asistencias: {}
