@@ -14,17 +14,14 @@ function mostrarAlumnos(filtroActividad = "") {
     
     if (btnAtras) {
         btnAtras.style.display = "block";
-        // CORRECCIÓN: Definimos el comportamiento de atrás de forma directa para evitar saltos dobles
         btnAtras.onclick = () => {
             if (filtroActividad) {
-                // Si venimos de una actividad, al pulsar atrás volvemos a la lista de Actividades
                 if (typeof mostrarActividades === 'function') {
                     mostrarActividades();
                 } else {
                     mostrarAlumnos("");
                 }
             } else {
-                // Si es el listado general, volvemos al inicio (dashboard)
                 if (typeof irInicio === 'function') {
                     irInicio();
                 } else {
@@ -79,24 +76,31 @@ function renderizarListaAlumnos(query = "") {
         return "ESPERA";
     };
 
-    // FILTRADO
+    // FILTRADO INTELIGENTE (Estricto si es actividad exacta, flexible para nombres)
     if (query) {
         const q = query.trim().toLowerCase();
-        listaAl = listaAl.filter(a => 
-            (a.nome && a.nome.toString().toLowerCase().includes(q)) || 
-            (a.apelidos && a.apelidos.toString().toLowerCase().includes(q)) ||
-            (a.act && a.act.toString().toLowerCase().includes(q))
-        );
+        const esActividadExacta = actividadesExistentes.some(act => act.toLowerCase() === q);
+
+        listaAl = listaAl.filter(a => {
+            const coincideNombre = a.nome && a.nome.toString().toLowerCase().includes(q);
+            const coincideApellidos = a.apelidos && a.apelidos.toString().toLowerCase().includes(q);
+            
+            if (esActividadExacta) {
+                const coincideActividadEstricta = a.act && a.act.toString().toLowerCase() === q;
+                return coincideNombre || coincideApellidos || coincideActividadEstricta;
+            } else {
+                const coincideActividadFlexible = a.act && a.act.toString().toLowerCase().includes(q);
+                return coincideNombre || coincideApellidos || coincideActividadFlexible;
+            }
+        });
     }
 
-    // CORRECCIÓN ORDENACIÓN: 1º Admitidos (A-Z), 2º Espera (A-Z), 3º Baixa (A-Z)
+    // ORDENACIÓN: 1º Admitidos (A-Z), 2º Espera (A-Z), 3º Baixa (A-Z)
     const mapaOrden = { 'ADMITIDO': 1, 'ESPERA': 2, 'BAIXA': 3 };
     listaAl.sort((a, b) => {
         const estA = obtenerEstadoReal(a), estB = obtenerEstadoReal(b);
-        // Si los estados son distintos, ordenamos por la jerarquía del mapa
         if (mapaOrden[estA] !== mapaOrden[estB]) return mapaOrden[estA] - mapaOrden[estB];
         
-        // Si el estado es el mismo, ordenamos alfabéticamente por Nombre + Apellidos
         const completoA = ((a.nome || "") + " " + (a.apelidos || "")).trim().toUpperCase();
         const completoB = ((b.nome || "") + " " + (b.apelidos || "")).trim().toUpperCase();
         return completoA.localeCompare(completoB);
